@@ -258,17 +258,57 @@ def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, t
             statements = [stmt.strip() for stmt in create_table_sql.split(';') if stmt.strip()]
             for statement in statements:
                 if statement:
-                    click.echo(f"Executing: {{statement[:50]}}...")
+                    click.echo(f"Executing: {{statement}}...")
                     cursor.execute(statement)
             
-            # Import data using COPY FROM STDIN
+            # Import data using COPY FROM STDIN with progress bar
             click.echo("Importing data...")
+            
+            # Get file size for progress tracking
+            file_size = os.path.getsize(csv_file)
             
             # Build the COPY command
             copy_sql = f"COPY {{db_schema_name}}.{{table_name}} FROM STDIN WITH CSV HEADER"
             
+            # Create a progress bar wrapper for the file
+            class ProgressFileWrapper:
+                def __init__(self, file_obj, file_size):
+                    self.file_obj = file_obj
+                    self.file_size = file_size
+                    self.bytes_read = 0
+                    self.progress_bar = click.progressbar(length=file_size, 
+                                                        label='Uploading CSV data',
+                                                        show_percent=True,
+                                                        show_eta=True)
+                    self.progress_bar.__enter__()
+                
+                def read(self, size=-1):
+                    data = self.file_obj.read(size)
+                    if data:
+                        self.bytes_read += len(data)
+                        self.progress_bar.update(len(data))
+                    return data
+                
+                def readline(self):
+                    line = self.file_obj.readline()
+                    if line:
+                        self.bytes_read += len(line)
+                        self.progress_bar.update(len(line))
+                    return line
+                
+                def __getattr__(self, name):
+                    return getattr(self.file_obj, name)
+                
+                def close(self):
+                    self.progress_bar.__exit__(None, None, None)
+                    self.file_obj.close()
+            
             with open(csv_file, 'r') as f:
-                cursor.copy_expert(copy_sql, f)
+                progress_wrapper = ProgressFileWrapper(f, file_size)
+                try:
+                    cursor.copy_expert(copy_sql, progress_wrapper)
+                finally:
+                    progress_wrapper.close()
             
             # Get row count
             cursor.execute(f"SELECT COUNT(*) FROM {{db_schema_name}}.{{table_name}}")

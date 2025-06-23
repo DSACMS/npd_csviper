@@ -257,7 +257,7 @@ def execute_mysql_import(db_config, db_schema_name, table_name, csv_file, trampl
             statements = [stmt.strip() for stmt in create_table_sql.split(';') if stmt.strip()]
             for statement in statements:
                 if statement:
-                    click.echo(f"Executing: {{statement[:50]}}...")
+                    click.echo(f"Executing: {{statement}}...")
                     cursor.execute(statement)
             
             # Execute LOAD DATA statement
