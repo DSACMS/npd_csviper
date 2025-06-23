@@ -5,6 +5,7 @@ CSV Metadata Extraction for CSViper
 import os
 import csv
 import json
+import hashlib
 from typing import Dict, Any, List
 from .column_normalizer import ColumnNormalizer
 
@@ -15,13 +16,57 @@ class CSVMetadataExtractor:
     """
     
     @staticmethod
-    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: str = None) -> Dict[str, Any]:
+    def _validate_column_mapping_uniqueness(metadata: Dict[str, Any]) -> None:
         """
-        Extract metadata from a CSV file and optionally save to JSON.
+        Validate that all normalized column names in the column_name_mapping are unique.
+        
+        Args:
+            metadata (Dict[str, Any]): Metadata dictionary to validate
+            
+        Raises:
+            ValueError: If duplicate normalized column names are found
+        """
+        if 'column_name_mapping' not in metadata:
+            return
+        
+        column_mapping = metadata['column_name_mapping']
+        normalized_values = list(column_mapping.values())
+        
+        # Check for duplicates
+        seen = set()
+        duplicates = set()
+        for value in normalized_values:
+            if value in seen:
+                duplicates.add(value)
+            else:
+                seen.add(value)
+        
+        if duplicates:
+            # Find which original columns map to the duplicate normalized names
+            duplicate_mappings = {}
+            for orig_col, norm_col in column_mapping.items():
+                if norm_col in duplicates:
+                    if norm_col not in duplicate_mappings:
+                        duplicate_mappings[norm_col] = []
+                    duplicate_mappings[norm_col].append(orig_col)
+            
+            error_msg = "Duplicate normalized column names found in column_name_mapping:\n"
+            for norm_col, orig_cols in duplicate_mappings.items():
+                error_msg += f"  '{norm_col}' is mapped from: {orig_cols}\n"
+            error_msg += "\nThis would cause SQL column name conflicts. "
+            error_msg += "Please manually edit the metadata.json file to ensure all normalized column names are unique."
+            
+            raise ValueError(error_msg)
+    
+    @staticmethod
+    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: str = None, overwrite_previous: bool = False) -> Dict[str, Any]:
+        """
+        Extract metadata from a CSV file and optionally save to JSON with hash-based caching.
         
         Args:
             full_path_to_csv_file (str): Absolute path to the local CSV file
             output_dir (str, optional): Directory to save metadata JSON file
+            overwrite_previous (bool): Whether to overwrite existing cached metadata
             
         Returns:
             Dict[str, Any]: Metadata dictionary containing file info, columns, and analysis
@@ -40,9 +85,19 @@ class CSVMetadataExtractor:
         print(f"Analyzing CSV file: {os.path.basename(full_path_to_csv_file)}")
         
         # Get basic file info
-        file_size = os.path.getsize(full_path_to_csv_file)
         filename = os.path.basename(full_path_to_csv_file)
         filename_without_ext = os.path.splitext(filename)[0]
+        
+        # If output directory is specified, check for cached metadata based on column headers hash
+        if output_dir and not overwrite_previous:
+            cached_metadata = CSVMetadataExtractor._get_cached_metadata(
+                full_path_to_csv_file, output_dir, filename_without_ext
+            )
+            if cached_metadata:
+                return cached_metadata
+        
+        # Generate new metadata
+        file_size = os.path.getsize(full_path_to_csv_file)
         
         # Detect CSV format using csv.Sniffer
         delimiter, quote_char = CSVMetadataExtractor._detect_csv_format(full_path_to_csv_file)
@@ -64,6 +119,10 @@ class CSVMetadataExtractor:
             full_path_to_csv_file, delimiter, quote_char, original_columns, normalized_columns
         )
         
+        # Generate column headers hash for caching
+        column_headers_str = ','.join([col.lower() for col in original_columns])
+        column_headers_hash = hashlib.md5(column_headers_str.encode()).hexdigest()
+        
         # Build metadata dictionary
         metadata = {
             "filename": filename,
@@ -76,7 +135,8 @@ class CSVMetadataExtractor:
             "normalized_column_names": normalized_columns,
             "column_name_mapping": column_mapping,
             "max_column_lengths": max_lengths,
-            "total_columns": len(original_columns)
+            "total_columns": len(original_columns),
+            "column_headers_hash": column_headers_hash
         }
         
         # Save metadata to JSON file if output directory is specified
@@ -163,12 +223,12 @@ class CSVMetadataExtractor:
             normalized_columns (List[str]): List of normalized column names
             
         Returns:
-            Dict[str, int]: Maximum length for each normalized column name
+            Dict[str, int]: Maximum length for each original column name
             
         Raises:
             ValueError: If rows have inconsistent column counts
         """
-        max_lengths = {norm_col: 0 for norm_col in normalized_columns}
+        max_lengths = {orig_col: 0 for orig_col in original_columns}
         expected_column_count = len(original_columns)
         
         with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
@@ -188,12 +248,70 @@ class CSVMetadataExtractor:
                         f"Expected {expected_column_count} columns, found {len(row)}"
                     )
                 
-                # Update maximum lengths
+                # Update maximum lengths using original column names as keys
                 for i, value in enumerate(row):
-                    normalized_col = normalized_columns[i]
-                    max_lengths[normalized_col] = max(max_lengths[normalized_col], len(str(value)))
+                    original_col = original_columns[i]
+                    max_lengths[original_col] = max(max_lengths[original_col], len(str(value)))
         
         return max_lengths
+    
+    @staticmethod
+    def _get_cached_metadata(csv_file_path: str, output_dir: str, filename_base: str) -> Dict[str, Any]:
+        """
+        Check for cached metadata based on column headers hash.
+        
+        Args:
+            csv_file_path (str): Path to the CSV file
+            output_dir (str): Output directory where metadata might be cached
+            filename_base (str): Base filename (without extension)
+            
+        Returns:
+            Dict[str, Any]: Cached metadata if found and headers match, None otherwise
+        """
+        # Check if metadata file exists
+        json_filename = f"{filename_base}.metadata.json"
+        json_path = os.path.join(output_dir, json_filename)
+        
+        if not os.path.exists(json_path):
+            return None
+        
+        try:
+            # Load existing metadata
+            with open(json_path, 'r', encoding='utf-8') as jsonfile:
+                existing_metadata = json.load(jsonfile)
+            
+            # Check if the existing metadata has a column headers hash
+            if 'column_headers_hash' not in existing_metadata:
+                print(f"Existing metadata lacks column headers hash, regenerating...")
+                return None
+            
+            # Get current CSV column headers and generate hash
+            delimiter, quote_char = CSVMetadataExtractor._detect_csv_format(csv_file_path)
+            original_columns, _ = CSVMetadataExtractor._extract_column_names(
+                csv_file_path, delimiter, quote_char
+            )
+            
+            # Generate current column headers hash
+            column_headers_str = ','.join([col.lower() for col in original_columns])
+            current_hash = hashlib.md5(column_headers_str.encode()).hexdigest()
+            
+            # Compare hashes
+            if existing_metadata['column_headers_hash'] == current_hash:
+                print(f"Using cached metadata (column headers unchanged): {json_path}")
+                # Update the full path in case the file was moved
+                existing_metadata['full_path'] = csv_file_path
+                
+                # Validate that the cached metadata doesn't have duplicate normalized column names
+                CSVMetadataExtractor._validate_column_mapping_uniqueness(existing_metadata)
+                
+                return existing_metadata
+            else:
+                print(f"Column headers changed, regenerating metadata...")
+                return None
+                
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            print(f"Error reading cached metadata: {e}, regenerating...")
+            return None
     
     @staticmethod
     def _save_metadata_json(metadata: Dict[str, Any], output_dir: str, filename_base: str) -> None:

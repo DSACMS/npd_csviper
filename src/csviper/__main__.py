@@ -46,19 +46,12 @@ def extract_metadata(from_csv, output_dir, overwrite_previous):
         
         output_dir = os.path.abspath(output_dir)
         
-        # Check if output directory exists and handle overwrite logic
-        if os.path.exists(output_dir) and not overwrite_previous:
-            metadata_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(csv_path))[0]}.metadata.json")
-            if os.path.exists(metadata_file):
-                click.echo(f"Error: Metadata file already exists: {metadata_file}")
-                click.echo("Use --overwrite_previous to overwrite existing files")
-                sys.exit(1)
         
         click.echo(f"Extracting metadata from: {csv_path}")
         click.echo(f"Output directory: {output_dir}")
         
         # Extract metadata
-        metadata = CSVMetadataExtractor.fromFileToMetadata(csv_path, output_dir)
+        metadata = CSVMetadataExtractor.fromFileToMetadata(csv_path, output_dir, overwrite_previous)
         
         click.echo(f"✓ Successfully extracted metadata for {metadata['total_columns']} columns")
         click.echo(f"✓ File size: {metadata['file_size_bytes']:,} bytes")

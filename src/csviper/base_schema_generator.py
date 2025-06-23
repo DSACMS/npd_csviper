@@ -45,6 +45,10 @@ class BaseSchemaGenerator:
         with open(metadata_json_path, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
         
+        # Validate that normalized column names are unique
+        from .metadata_extractor import CSVMetadataExtractor
+        CSVMetadataExtractor._validate_column_mapping_uniqueness(metadata)
+        
         # Validate required metadata fields
         required_fields = ['filename_without_extension', 'normalized_column_names', 'max_column_lengths']
         for field in required_fields:
@@ -57,9 +61,24 @@ class BaseSchemaGenerator:
         cache_dir = os.path.join(output_dir, 'cache_create_table_sql')
         os.makedirs(cache_dir, exist_ok=True)
         
-        # Generate MD5 hash for column structure caching
-        column_names_str = ','.join([col.lower() for col in metadata['normalized_column_names']])
-        column_md5_hash = hashlib.md5(column_names_str.encode()).hexdigest()
+        # Generate cascading MD5 hash for caching (CSV headers + metadata content)
+        # This ensures SQL regeneration when either CSV headers or metadata content changes
+        csv_headers_str = ','.join([col.lower() for col in metadata['original_column_names']])
+        
+        # Create a deterministic string representation of the metadata content
+        # Include key fields that affect SQL generation
+        metadata_content_parts = [
+            ','.join(metadata['normalized_column_names']),
+            ','.join([f"{k}:{v}" for k, v in sorted(metadata['max_column_lengths'].items())]),
+            ','.join([f"{k}:{v}" for k, v in sorted(metadata['column_name_mapping'].items())]),
+            metadata['delimiter'],
+            metadata['quote_character']
+        ]
+        metadata_content_str = '|'.join(metadata_content_parts)
+        
+        # Combine CSV headers and metadata content for cascading hash
+        combined_content = f"{csv_headers_str}#{metadata_content_str}"
+        column_md5_hash = hashlib.md5(combined_content.encode()).hexdigest()
         
         # Check for cached CREATE TABLE SQL
         create_table_sql = BaseSchemaGenerator._get_or_create_table_sql(

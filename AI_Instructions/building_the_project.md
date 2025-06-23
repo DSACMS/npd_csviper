@@ -6,9 +6,12 @@ We have successfully created the a working prototype of all the steps. Now lets 
 Lets complete these tasks one at a time. Focus only on the top item on this list until it is complete. .
 
 
-* Currently csviper is mostly a package that is focused on being a CLI tool. However, the most of the functions in the generated go.postgresql.py and go.mysql.py should be moved into a single class with static functions, which can then be imported into the respective "go" scripts. This will make the resulting go scripts simply the place where all of the components of the import process are tied together, in a script that might eventually be used to include per-data import tweaks and special features. 
-* At each stage of the process, there should be the capacity to tweak the auto-generated output, and have that not be overwritten by subsequent runs of the tool-chain. Specifically:
-* For the metadata generation, the system should use the hash on the column headers to determine if the signature of the metadata is the same. When the headers change.. there should actually be a new metadata file generated.. but otherwise the last version should be used. This will allow for manual tweaks to the metadata model, especially how database friendly versions of column names to be re-interpreted.
-* The same approach should happen for the md5 signatures of the generated SQL. Assuming the same SQL would be generated, the file contents should be loaded instead, this will allow for additions in the SQL sequence to apply including adding indexes or calculating intermediate tables differently.  
+* I think expecting a "cacascade" of configuration changes to pass through the system may be unrealistic. 
+* Instead I think the "trample" parameter (which is not called that) should be the way this is controlled. 
 
+* Need to refactor things to not include file names with dates in the various files.. need to work on the same nppes files with two different date strings for instance.
 
+* The next thing to fix is the testing infrastructure, every file in the testing subdirectories tests a different problematic data pattern or metadata problem or whatever. 
+* These need to be cataloged and turned into automatic tests. 
+* However, I think it may be nessecary to rethink how the testing works, in order to think in terms of bad files and corresponding output. 
+* I am also concerned that testing part of the project takes place in another repo altogether to avoid cases where the command line tool works differently in the project directory than it does when used as a CLI tool elsewhere.  

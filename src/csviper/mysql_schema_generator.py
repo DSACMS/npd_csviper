@@ -58,8 +58,22 @@ class MySQLSchemaGenerator(BaseSchemaGenerator):
         
         column_definitions = []
         for col_name in metadata['normalized_column_names']:
+            # Find the original column name that maps to this normalized name
+            original_col = None
+            for orig, norm in metadata['column_name_mapping'].items():
+                if norm == col_name:
+                    original_col = orig
+                    break
+            
+            if original_col is None:
+                raise ValueError(f"Could not find original column name for normalized column '{col_name}'")
+            
+            # Look up max length using the original column name
+            if original_col not in metadata['max_column_lengths']:
+                raise ValueError(f"Column '{original_col}' not found in max_column_lengths")
+            
             # Add 1 to max length to ensure there's room for the data
-            varchar_length = metadata['max_column_lengths'][col_name] + 1
+            varchar_length = metadata['max_column_lengths'][original_col] + 1
             column_definitions.append(f"    `{col_name}` VARCHAR({varchar_length})")
         
         create_table_sql += ",\n".join(column_definitions)
