@@ -37,6 +37,7 @@ def find_post_import_sql_files(script_dir):
     # Look for SQL files in subdirectories
     for root, dirs, files in os.walk(post_import_dir):
         for filename in files:
+            # First, look for PostgreSQL-specific files
             if filename.endswith('.postgresql.sql'):
                 # Extract numeric prefix
                 try:
@@ -47,6 +48,21 @@ def find_post_import_sql_files(script_dir):
                 except (ValueError, IndexError):
                     # Skip files that don't follow the naming convention
                     continue
+    
+    # If no PostgreSQL-specific files found, look for generic .sql files
+    if not files_with_order:
+        for root, dirs, files in os.walk(post_import_dir):
+            for filename in files:
+                if filename.endswith('.sql') and not filename.endswith('.mysql.sql'):
+                    # Extract numeric prefix
+                    try:
+                        order_str = filename.split('_')[0]
+                        order = int(order_str)
+                        filepath = os.path.join(root, filename)
+                        files_with_order.append((order, filepath))
+                    except (ValueError, IndexError):
+                        # Skip files that don't follow the naming convention
+                        continue
     
     # Sort by order
     files_with_order.sort(key=lambda x: x[0])
@@ -88,10 +104,12 @@ def execute_post_import_sql(connection, post_import_files, db_schema_name, table
             for statement in statements:
                 if statement and not statement.startswith('--'):
                     try:
+                        click.echo(f"  Executing: {statement}")
                         cursor.execute(statement)
                         connection.commit()
                     except Exception as e:
                         click.echo(f"Warning: Error executing statement in {filename}: {e}")
+                        click.echo(f"  Failed statement: {statement}")
                         # Continue with next statement
                         continue
     
