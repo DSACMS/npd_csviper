@@ -119,6 +119,16 @@ import csv
 import click
 from dotenv import load_dotenv
 
+# ANSI color codes for terminal output
+class Colors:
+    DARK_RED = '\\033[31m'
+    RESET = '\\033[0m'
+    
+    @staticmethod
+    def dark_red(text):
+        """Format text in dark red color"""
+        return f"{{Colors.DARK_RED}}{{text}}{{Colors.RESET}}"
+
 
 def find_post_import_sql_files(script_dir):
     """
@@ -212,8 +222,8 @@ def execute_post_import_sql(connection, post_import_files, db_schema_name, table
                         cursor.execute(statement)
                         connection.commit()
                     except Exception as e:
-                        click.echo(f"Warning: Error executing statement in {{filename}}: {{e}}")
-                        click.echo(f"  Failed statement: {{statement}}")
+                        click.echo(Colors.dark_red(f"Warning: Error executing statement in {{filename}}: {{e}}"))
+                        click.echo(Colors.dark_red(f"  Failed statement: {{statement}}"))
                         # Continue with next statement
                         continue
     
@@ -271,11 +281,11 @@ def validate_csv_header(csv_file, expected_columns):
         actual_header = next(reader)
     
     if len(actual_header) != len(expected_columns):
-        raise ValueError(f"Column count mismatch: Expected {{len(expected_columns)}}, got {{len(actual_header)}}")
+        raise ValueError(Colors.dark_red(f"Column count mismatch: Expected {{len(expected_columns)}}, got {{len(actual_header)}}"))
     
     for i, (expected, actual) in enumerate(zip(expected_columns, actual_header)):
         if expected != actual:
-            raise ValueError(f"Column {{i+1}} mismatch: Expected '{{expected}}', got '{{actual}}'")
+            raise ValueError(Colors.dark_red(f"Column {{i+1}} mismatch: Expected '{{expected}}', got '{{actual}}'"))
 
 
 def load_sql_file(filename):
@@ -292,7 +302,7 @@ def load_sql_file(filename):
     sql_path = os.path.join(script_dir, filename)
     
     if not os.path.exists(sql_path):
-        raise FileNotFoundError(f"SQL file not found: {{sql_path}}")
+        raise FileNotFoundError(Colors.dark_red(f"SQL file not found: {{sql_path}}"))
     
     with open(sql_path, 'r') as f:
         return f.read()
@@ -331,7 +341,7 @@ def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, t
         import psycopg2
         import psycopg2.extras
     except ImportError:
-        raise ImportError("psycopg2 library is required for PostgreSQL imports. Install with: pip install psycopg2-binary")
+        raise ImportError(Colors.dark_red("psycopg2 library is required for PostgreSQL imports. Install with: pip install psycopg2-binary"))
     
     # Load SQL files
     create_table_sql = load_sql_file('{csv_basename}.create_table_postgres.sql')
@@ -449,18 +459,18 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         
         # Validate CSV file exists
         if not os.path.exists(csv_file):
-            raise FileNotFoundError(f"CSV file not found: {{csv_file}}")
+            raise FileNotFoundError(Colors.dark_red(f"CSV file not found: {{csv_file}}"))
         
         # Find .env file
         if env_file_location:
             env_file_location = os.path.expanduser(env_file_location)
             if not os.path.exists(env_file_location):
-                raise FileNotFoundError(f".env file not found: {{env_file_location}}")
+                raise FileNotFoundError(Colors.dark_red(f".env file not found: {{env_file_location}}"))
             env_file = env_file_location
         else:
             env_file = find_env_file()
             if not env_file:
-                raise FileNotFoundError("No .env file found. Specify --env_file_location or place .env in current/parent directory")
+                raise FileNotFoundError(Colors.dark_red("No .env file found. Specify --env_file_location or place .env in current/parent directory"))
         
         # Check .gitignore
         check_gitignore_for_env()
@@ -476,7 +486,7 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         for var in required_vars:
             value = os.getenv(var)
             if not value:
-                raise ValueError(f"Required environment variable not found: {{var}}")
+                raise ValueError(Colors.dark_red(f"Required environment variable not found: {{var}}"))
             db_config[var] = value
         
         for var in optional_vars:
@@ -495,12 +505,12 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         if not db_schema_name:
             db_schema_name = db_config.get('DB_SCHEMA')
             if not db_schema_name:
-                raise ValueError("Database schema name must be provided via --db_schema_name or DB_SCHEMA environment variable")
+                raise ValueError(Colors.dark_red("Database schema name must be provided via --db_schema_name or DB_SCHEMA environment variable"))
         
         if not table_name:
             table_name = db_config.get('DB_TABLE')
             if not table_name:
-                raise ValueError("Table name must be provided via --table_name or DB_TABLE environment variable")
+                raise ValueError(Colors.dark_red("Table name must be provided via --table_name or DB_TABLE environment variable"))
         
         # Validate CSV header
         expected_columns = metadata['original_column_names']
@@ -523,7 +533,7 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         click.echo("✓ PostgreSQL import completed successfully!")
         
     except Exception as e:
-        click.echo(f"Error: {{e}}", err=True)
+        click.echo(Colors.dark_red(f"Error: {{e}}"), err=True)
         sys.exit(1)
 
 

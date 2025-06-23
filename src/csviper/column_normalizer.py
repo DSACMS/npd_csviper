@@ -89,5 +89,5 @@ class ColumnNormalizer:
         if normalized and normalized[0].isdigit():
             normalized = '_' + normalized
         
-        # Truncate to 60 characters
-        return normalized[:60]
+        # Truncate to 60 characters and convert to lowercase
+        return normalized[:60].lower()
