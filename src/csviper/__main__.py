@@ -178,5 +178,80 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
         sys.exit(1)
 
 
+@cli.command()
+@click.option('--from_csv', required=True, type=click.Path(exists=True), 
+              help='Path to the CSV file to process')
+@click.option('--output_dir', type=click.Path(), 
+              help='Output directory (defaults to CSV filename without extension)')
+@click.option('--overwrite_previous', is_flag=True, default=False,
+              help='Overwrite existing output files')
+@click.pass_context
+def full_compile(ctx, from_csv, output_dir, overwrite_previous):
+    """
+    Run all compilation stages in sequence.
+    
+    Performs the complete CSViper workflow:
+    1. Extract metadata from CSV file
+    2. Generate SQL scripts from metadata
+    3. Generate Python import scripts
+    
+    This is equivalent to running extract_metadata, build_sql, and build_import_script
+    in sequence with the same parameters.
+    """
+    try:
+        # Convert to absolute path
+        csv_path = os.path.abspath(from_csv)
+        
+        # Determine output directory if not specified
+        if not output_dir:
+            csv_basename = os.path.basename(csv_path)
+            output_dir = os.path.splitext(csv_basename)[0]
+        
+        output_dir = os.path.abspath(output_dir)
+        
+        click.echo("=" * 60)
+        click.echo("CSViper Full Compilation")
+        click.echo("=" * 60)
+        click.echo(f"Input CSV: {csv_path}")
+        click.echo(f"Output directory: {output_dir}")
+        click.echo(f"Overwrite existing files: {overwrite_previous}")
+        click.echo()
+        
+        # Stage 1: Extract metadata
+        click.echo("STAGE 1: Extracting metadata from CSV file")
+        click.echo("-" * 40)
+        ctx.invoke(extract_metadata, 
+                  from_csv=from_csv, 
+                  output_dir=output_dir, 
+                  overwrite_previous=overwrite_previous)
+        
+        # Stage 2: Generate SQL scripts
+        click.echo(f"\nSTAGE 2: Generating SQL scripts from metadata")
+        click.echo("-" * 40)
+        metadata_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(csv_path))[0]}.metadata.json")
+        ctx.invoke(build_sql, 
+                  from_metadata_json=metadata_path, 
+                  output_dir=output_dir, 
+                  overwrite_previous=overwrite_previous)
+        
+        # Stage 3: Generate import scripts
+        click.echo(f"\nSTAGE 3: Generating Python import scripts")
+        click.echo("-" * 40)
+        ctx.invoke(build_import_script, 
+                  from_resource_dir=output_dir, 
+                  output_dir=output_dir, 
+                  overwrite_previous=overwrite_previous)
+        
+        # Final summary
+        click.echo(f"\n" + "=" * 60)
+        click.echo("FULL COMPILATION COMPLETE")
+        click.echo("=" * 60)
+        click.echo(f"All files generated in: {output_dir}")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     cli()
