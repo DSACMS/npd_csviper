@@ -119,9 +119,8 @@ class PostgreSQLSchemaGenerator:
         
         sql_parts = []
         
-        # CREATE DATABASE statement (PostgreSQL uses CREATE DATABASE)
-        sql_parts.append("CREATE DATABASE REPLACE_ME_DB_NAME;")
-        sql_parts.append("")
+        # Note: CREATE DATABASE is not included here as it cannot run inside a transaction
+        # The database should already exist when connecting
         
         # DROP TABLE statement
         sql_parts.append("DROP TABLE IF EXISTS REPLACE_ME_DB_NAME.REPLACE_ME_TABLE_NAME;")
