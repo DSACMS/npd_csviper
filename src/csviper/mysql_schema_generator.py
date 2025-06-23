@@ -7,6 +7,7 @@ import json
 import hashlib
 import glob
 from typing import Dict, Any, List
+from .post_import_sql_generator import PostImportSQLGenerator
 
 
 class MySQLSchemaGenerator:
@@ -82,9 +83,27 @@ class MySQLSchemaGenerator:
         print(f"Generated MySQL CREATE TABLE SQL: {create_table_file}")
         print(f"Generated MySQL IMPORT DATA SQL: {import_data_file}")
         
+        # Create post-import SQL directory structure
+        post_import_dir = os.path.join(output_dir, 'post_import_sql')
+        os.makedirs(post_import_dir, exist_ok=True)
+        
+        # Create subdirectory for this specific table structure
+        table_hash_dir = os.path.join(post_import_dir, f"{filename_base}_{column_md5_hash}")
+        os.makedirs(table_hash_dir, exist_ok=True)
+        
+        # Create a README file explaining the post-import SQL structure
+        readme_path = os.path.join(table_hash_dir, 'README.md')
+        if not os.path.exists(readme_path):
+            readme_content = PostImportSQLGenerator.load_readme_template('mysql', filename_base)
+            with open(readme_path, 'w', encoding='utf-8') as f:
+                f.write(readme_content)
+        
+        print(f"Created post-import SQL directory: {table_hash_dir}")
+        
         return {
             'create_table_sql': create_table_file,
-            'import_data_sql': import_data_file
+            'import_data_sql': import_data_file,
+            'post_import_dir': table_hash_dir
         }
     
     @staticmethod

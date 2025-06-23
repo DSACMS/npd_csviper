@@ -124,6 +124,12 @@ This script should support:
 
 The --trample flag will overwrite the previous import of the data with this new one.
 
+## Phase 4: Post Import SQL
+
+Underneath the {output_dir} there should be a directory full of SQL files that are numbered in the order they should be executed.
+
+Add a new stage of the sql import process that happens after data upload, which is the "post_import_sql" stage. This will allow for tasks like data calculations, indexing and data transformations to occur. This should take the form of a new directory, full of numerically ordered SQL files, using the REPLACE_ME_DATABASE_NAME and REPLACE_ME_TABLE_NAME templating approach. Look in ./nppest2/post_import_sql/nppes_npidata_21f8c89f23754346123596e3f6c66417 for an example. When the numeric prefix of the files are the same, then can be run in an order, larger numbers should be run later on. So all of the 01_something steps, should complete before the 05_something steps, which are in front of the 12_something steps etc.
+
 ### Behavior of Generated Script
 
 1. **Environment Setup**:
@@ -153,6 +159,11 @@ The --trample flag will overwrite the previous import of the data with this new 
    - For **MySQL**: executes `LOAD DATA LOCAL INFILE` pointing to the local CSV file. Note that this assumes the CSV file is in the same place on the client and server systems.. for now.
    - For **PostgreSQL**: uses `psycopg2.copy_expert()` to execute the `COPY FROM STDIN` command, streaming the local CSV file into the remote database.
 
+7. **Post Import SQL**:
+   1. This stage should load all of the data in the correct order from {output_dir}/post_import_sql/*.sql 
+   2. Then, this should the database connection to loop over these SQL: 
+   3. For each SQL statement replace the REPLACE_ME_DATABASE_NAME and REPLACE_ME_TABLE_NAME with the schema and table names respectively
+   4. Then execute each SQL statement, crashing when any of them fail with the corresponding error message from the database engine.
 ---
 
 ## Shared Utility Class: Column Name Normalization
