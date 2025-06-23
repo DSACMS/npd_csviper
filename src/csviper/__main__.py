@@ -132,13 +132,50 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
               help='Overwrite existing output files')
 def build_import_script(from_resource_dir, output_dir, overwrite_previous):
     """
-    Generate Python import script from resource directory.
+    Generate Python import scripts from resource directory.
     
-    Creates a standalone Python script (go.py) that can be used to import
-    CSV data into a database using the generated SQL scripts.
+    Creates standalone Python scripts (go.mysql.py and go.postgresql.py) that can be used to import
+    CSV data into databases using the generated SQL scripts.
     """
-    click.echo("build_import_script command - Not yet implemented")
-    # TODO: Implement script generation phase
+    try:
+        from .mysql_import_script_generator import MySQLImportScriptGenerator
+        from .postgresql_import_script_generator import PostgreSQLImportScriptGenerator
+        
+        # Convert to absolute path
+        resource_dir = os.path.abspath(from_resource_dir)
+        
+        # Determine output directory if not specified
+        if not output_dir:
+            output_dir = resource_dir
+        
+        output_dir = os.path.abspath(output_dir)
+        
+        click.echo(f"Generating import scripts from: {resource_dir}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        # Generate MySQL import script
+        click.echo("\n--- Generating MySQL import script ---")
+        mysql_script_path = MySQLImportScriptGenerator.fromResourceDirToScript(
+            resource_dir, output_dir, overwrite_previous
+        )
+        
+        # Generate PostgreSQL import script
+        click.echo("\n--- Generating PostgreSQL import script ---")
+        postgresql_script_path = PostgreSQLImportScriptGenerator.fromResourceDirToScript(
+            resource_dir, output_dir, overwrite_previous
+        )
+        
+        click.echo(f"\n✓ Successfully generated import scripts:")
+        click.echo(f"  MySQL: {os.path.basename(mysql_script_path)}")
+        click.echo(f"  PostgreSQL: {os.path.basename(postgresql_script_path)}")
+        click.echo(f"\nTo use the scripts:")
+        click.echo(f"  python {os.path.basename(mysql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
+        click.echo(f"  python {os.path.basename(postgresql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
+        click.echo(f"\nNote: Schema and table names can be set via DB_SCHEMA and DB_TABLE environment variables")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
