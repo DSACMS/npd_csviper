@@ -60,7 +60,6 @@ class PostgreSQLImportScriptGenerator(BaseImportScriptGenerator):
         """Generate the content of the go.postgresql.py script."""
         csv_basename = os.path.splitext(metadata['filename'])[0]
         timestamp = BaseImportScriptGenerator._get_timestamp()
-        shared_functions = BaseImportScriptGenerator._generate_shared_functions()
         
         script_content = f'''#!/usr/bin/env python3
 """
@@ -74,177 +73,16 @@ Generated on: {timestamp}
 
 import os
 import sys
-import json
-import csv
 import click
-from dotenv import load_dotenv
 
-# ANSI color codes for terminal output
-class Colors:
-    DARK_RED = '\\033[31m'
-    RESET = '\\033[0m'
-    
-    @staticmethod
-    def dark_red(text):
-        """Format text in dark red color"""
-        return f"{{Colors.DARK_RED}}{{text}}{{Colors.RESET}}"
-
-{shared_functions}
-
-def execute_post_import_sql(connection, post_import_files, db_schema_name, table_name):
-    """
-    Execute post-import SQL files in order.
-    
-    Args:
-        connection: Database connection
-        post_import_files (List[Tuple[int, str]]): List of (order, filepath) tuples
-        db_schema_name (str): Database schema name
-        table_name (str): Table name
-    """
-    if not post_import_files:
-        click.echo("No post-import SQL files found")
-        return
-    
-    click.echo(f"Executing {{len(post_import_files)}} post-import SQL files...")
-    
-    with connection.cursor() as cursor:
-        for order, filepath in post_import_files:
-            filename = os.path.basename(filepath)
-            click.echo(f"Executing post-import SQL: {{filename}}")
-            
-            # Read SQL file
-            with open(filepath, 'r', encoding='utf-8') as f:
-                sql_content = f.read()
-            
-            # Replace placeholders
-            sql_content = sql_content.replace('REPLACE_ME_DATABASE_NAME', db_schema_name) \\
-                                   .replace('REPLACE_ME_TABLE_NAME', table_name)
-            
-            # Split into individual statements and execute
-            statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
-            for statement in statements:
-                if statement and not statement.startswith('--'):
-                    try:
-                        click.echo(f"  Executing: {{statement}}")
-                        cursor.execute(statement)
-                        connection.commit()
-                    except Exception as e:
-                        click.echo(Colors.dark_red(f"Warning: Error executing statement in {{filename}}: {{e}}"))
-                        click.echo(Colors.dark_red(f"  Failed statement: {{statement}}"))
-                        # Continue with next statement
-                        continue
-    
-    click.echo("✓ Post-import SQL execution completed")
-
-
-def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample):
-    """
-    Execute PostgreSQL import process.
-    
-    Args:
-        db_config (dict): Database configuration
-        db_schema_name (str): Database schema name
-        table_name (str): Table name
-        csv_file (str): Path to CSV file
-        trample (bool): Whether to overwrite existing data
-    """
-    try:
-        import psycopg2
-        import psycopg2.extras
-    except ImportError:
-        raise ImportError(Colors.dark_red("psycopg2 library is required for PostgreSQL imports. Install with: pip install psycopg2-binary"))
-    
-    # Load SQL files
-    create_table_sql = load_sql_file('{csv_basename}.create_table_postgres.sql')
-    
-    # Replace placeholders
-    csv_full_path = os.path.abspath(csv_file)
-    create_table_sql = replace_sql_placeholders(create_table_sql, db_schema_name, table_name, csv_full_path)
-    
-    # Connect to database
-    connection = psycopg2.connect(
-        host=db_config['DB_HOST'],
-        port=int(db_config['DB_PORT']),
-        user=db_config['DB_USER'],
-        password=db_config['DB_PASSWORD'],
-        database=db_config['DB_NAME']
-    )
-    
-    try:
-        with connection.cursor() as cursor:
-            # Create schema if it doesn't exist
-            cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {{db_schema_name}}")
-            
-            # Execute CREATE TABLE statements
-            statements = [stmt.strip() for stmt in create_table_sql.split(';') if stmt.strip()]
-            for statement in statements:
-                if statement:
-                    click.echo(f"Executing: {{statement}}...")
-                    cursor.execute(statement)
-            
-            # Import data using COPY FROM STDIN with progress bar
-            click.echo("Importing data...")
-            
-            # Get file size for progress tracking
-            file_size = os.path.getsize(csv_file)
-            
-            # Build the COPY command
-            copy_sql = f"COPY {{db_schema_name}}.{{table_name}} FROM STDIN WITH CSV HEADER"
-            
-            # Create a progress bar wrapper for the file
-            class ProgressFileWrapper:
-                def __init__(self, file_obj, file_size):
-                    self.file_obj = file_obj
-                    self.file_size = file_size
-                    self.bytes_read = 0
-                    self.progress_bar = click.progressbar(length=file_size, 
-                                                        label='Uploading CSV data',
-                                                        show_percent=True,
-                                                        show_eta=True)
-                    self.progress_bar.__enter__()
-                
-                def read(self, size=-1):
-                    data = self.file_obj.read(size)
-                    if data:
-                        self.bytes_read += len(data)
-                        self.progress_bar.update(len(data))
-                    return data
-                
-                def readline(self):
-                    line = self.file_obj.readline()
-                    if line:
-                        self.bytes_read += len(line)
-                        self.progress_bar.update(len(line))
-                    return line
-                
-                def __getattr__(self, name):
-                    return getattr(self.file_obj, name)
-                
-                def close(self):
-                    self.progress_bar.__exit__(None, None, None)
-                    self.file_obj.close()
-            
-            with open(csv_file, 'r') as f:
-                progress_wrapper = ProgressFileWrapper(f, file_size)
-                try:
-                    cursor.copy_expert(copy_sql, progress_wrapper)
-                finally:
-                    progress_wrapper.close()
-            
-            # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {{db_schema_name}}.{{table_name}}")
-            row_count = cursor.fetchone()[0]
-            click.echo(f"✓ Successfully imported {{row_count:,}} rows")
-        
-        connection.commit()
-        
-        # Execute post-import SQL files
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        post_import_files = find_post_import_sql_files(script_dir, 'postgresql')
-        execute_post_import_sql(connection, post_import_files, db_schema_name, table_name)
-        
-    finally:
-        connection.close()
+# Import the shared functionality from csviper package
+try:
+    from csviper.import_executor import ImportExecutor
+except ImportError:
+    # Fallback for standalone scripts - add the parent directory to path
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+    from csviper.import_executor import ImportExecutor
 
 
 @click.command()
@@ -265,67 +103,14 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
     This script was generated by CSViper for the CSV file: {metadata['filename']}
     """
     try:
-        # Expand user path (handle ~ symbol)
-        csv_file = os.path.expanduser(csv_file)
-        
-        # Validate CSV file exists
-        if not os.path.exists(csv_file):
-            raise FileNotFoundError(Colors.dark_red(f"CSV file not found: {{csv_file}}"))
-        
-        # Find .env file
-        if env_file_location:
-            env_file_location = os.path.expanduser(env_file_location)
-            if not os.path.exists(env_file_location):
-                raise FileNotFoundError(Colors.dark_red(f".env file not found: {{env_file_location}}"))
-            env_file = env_file_location
-        else:
-            env_file = find_env_file()
-            if not env_file:
-                raise FileNotFoundError(Colors.dark_red("No .env file found. Specify --env_file_location or place .env in current/parent directory"))
-        
-        # Check .gitignore
-        check_gitignore_for_env()
-        
-        # Load environment variables
-        load_dotenv(env_file)
-        
-        # Get database configuration
-        required_vars = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
-        optional_vars = ['DB_SCHEMA', 'DB_TABLE', 'DEBUG', 'SECRET_KEY']
-        db_config = {{}}
-        
-        for var in required_vars:
-            value = os.getenv(var)
-            if not value:
-                raise ValueError(Colors.dark_red(f"Required environment variable not found: {{var}}"))
-            db_config[var] = value
-        
-        for var in optional_vars:
-            value = os.getenv(var)
-            if value:
-                db_config[var] = value
-        
-        # Load metadata to validate CSV header
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        metadata_file = os.path.join(script_dir, '{csv_basename}.metadata.json')
-        
-        with open(metadata_file, 'r') as f:
-            metadata = json.load(f)
-        
-        # Determine schema and table names
-        if not db_schema_name:
-            db_schema_name = db_config.get('DB_SCHEMA')
-            if not db_schema_name:
-                raise ValueError(Colors.dark_red("Database schema name must be provided via --db_schema_name or DB_SCHEMA environment variable"))
-        
-        if not table_name:
-            table_name = db_config.get('DB_TABLE')
-            if not table_name:
-                raise ValueError(Colors.dark_red("Table name must be provided via --table_name or DB_TABLE environment variable"))
+        # Load and validate configuration
+        db_config, db_schema_name, table_name, metadata = ImportExecutor.load_and_validate_config(
+            env_file_location, csv_file, db_schema_name, table_name, '{csv_basename}.metadata.json'
+        )
         
         # Validate CSV header
         expected_columns = metadata['original_column_names']
-        validate_csv_header(csv_file, expected_columns)
+        ImportExecutor.validate_csv_header(csv_file, expected_columns)
         
         # Check debug mode
         debug_mode = db_config.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on')
@@ -338,12 +123,16 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         if trample:
             click.echo("Warning: --trample flag is set. Existing table data will be overwritten.")
         
-        # Execute PostgreSQL import
-        execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample)
+        # Execute PostgreSQL import using the shared executor
+        ImportExecutor.execute_postgresql_import(
+            db_config, db_schema_name, table_name, csv_file, trample, 
+            '{csv_basename}.create_table_postgres.sql'
+        )
         
         click.echo("✓ PostgreSQL import completed successfully!")
         
     except Exception as e:
+        from csviper.import_executor import Colors
         click.echo(Colors.dark_red(f"Error: {{e}}"), err=True)
         sys.exit(1)
 

@@ -60,7 +60,6 @@ class MySQLImportScriptGenerator(BaseImportScriptGenerator):
         """Generate the content of the go.mysql.py script."""
         csv_basename = os.path.splitext(metadata['filename'])[0]
         timestamp = BaseImportScriptGenerator._get_timestamp()
-        shared_functions = BaseImportScriptGenerator._generate_shared_functions()
         
         script_content = f'''#!/usr/bin/env python3
 """
@@ -74,121 +73,16 @@ Generated on: {timestamp}
 
 import os
 import sys
-import json
-import csv
 import click
-from dotenv import load_dotenv
 
-{shared_functions}
-
-def execute_post_import_sql(connection, post_import_files, db_schema_name, table_name):
-    """
-    Execute post-import SQL files in order.
-    
-    Args:
-        connection: Database connection
-        post_import_files (List[Tuple[int, str]]): List of (order, filepath) tuples
-        db_schema_name (str): Database schema name
-        table_name (str): Table name
-    """
-    if not post_import_files:
-        click.echo("No post-import SQL files found")
-        return
-    
-    click.echo(f"Executing {{len(post_import_files)}} post-import SQL files...")
-    
-    with connection.cursor() as cursor:
-        for order, filepath in post_import_files:
-            filename = os.path.basename(filepath)
-            click.echo(f"Executing post-import SQL: {{filename}}")
-            
-            # Read SQL file
-            with open(filepath, 'r', encoding='utf-8') as f:
-                sql_content = f.read()
-            
-            # Replace placeholders
-            sql_content = sql_content.replace('REPLACE_ME_DATABASE_NAME', db_schema_name) \\
-                                   .replace('REPLACE_ME_TABLE_NAME', table_name)
-            
-            # Split into individual statements and execute
-            statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
-            for statement in statements:
-                if statement and not statement.startswith('--'):
-                    try:
-                        click.echo(f"  Executing: {{statement}}")
-                        cursor.execute(statement)
-                        connection.commit()
-                    except Exception as e:
-                        click.echo(f"Warning: Error executing statement in {{filename}}: {{e}}")
-                        click.echo(f"  Failed statement: {{statement}}")
-                        # Continue with next statement
-                        continue
-    
-    click.echo("✓ Post-import SQL execution completed")
-
-
-def execute_mysql_import(db_config, db_schema_name, table_name, csv_file, trample):
-    """
-    Execute MySQL import process.
-    
-    Args:
-        db_config (dict): Database configuration
-        db_schema_name (str): Database schema name
-        table_name (str): Table name
-        csv_file (str): Path to CSV file
-        trample (bool): Whether to overwrite existing data
-    """
-    try:
-        import pymysql
-    except ImportError:
-        raise ImportError("pymysql library is required for MySQL imports. Install with: pip install pymysql")
-    
-    # Load SQL files
-    create_table_sql = load_sql_file('{csv_basename}.create_table_mysql.sql')
-    import_data_sql = load_sql_file('{csv_basename}.import_data_mysql.sql')
-    
-    # Replace placeholders
-    csv_full_path = os.path.abspath(csv_file)
-    create_table_sql = replace_sql_placeholders(create_table_sql, db_schema_name, table_name, csv_full_path)
-    import_data_sql = replace_sql_placeholders(import_data_sql, db_schema_name, table_name, csv_full_path)
-    
-    # Connect to database
-    connection = pymysql.connect(
-        host=db_config['DB_HOST'],
-        port=int(db_config['DB_PORT']),
-        user=db_config['DB_USER'],
-        password=db_config['DB_PASSWORD'],
-        database=db_config['DB_NAME'],
-        local_infile=True
-    )
-    
-    try:
-        with connection.cursor() as cursor:
-            # Execute CREATE TABLE statements
-            statements = [stmt.strip() for stmt in create_table_sql.split(';') if stmt.strip()]
-            for statement in statements:
-                if statement:
-                    click.echo(f"Executing: {{statement}}...")
-                    cursor.execute(statement)
-            
-            # Execute LOAD DATA statement
-            click.echo("Importing data...")
-            cursor.execute(import_data_sql)
-            
-            # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {{db_schema_name}}.{{table_name}}")
-            row_count = cursor.fetchone()[0]
-            click.echo(f"✓ Successfully imported {{row_count:,}} rows")
-        
-        connection.commit()
-        
-        # Execute post-import SQL files
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        post_import_files = find_post_import_sql_files(script_dir, 'mysql')
-        execute_post_import_sql(connection, post_import_files, db_schema_name, table_name)
-        
-    finally:
-        connection.close()
+# Import the shared functionality from csviper package
+try:
+    from csviper.import_executor import ImportExecutor
+except ImportError:
+    # Fallback for standalone scripts - add the parent directory to path
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+    from csviper.import_executor import ImportExecutor
 
 
 @click.command()
@@ -209,67 +103,14 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
     This script was generated by CSViper for the CSV file: {metadata['filename']}
     """
     try:
-        # Expand user path (handle ~ symbol)
-        csv_file = os.path.expanduser(csv_file)
-        
-        # Validate CSV file exists
-        if not os.path.exists(csv_file):
-            raise FileNotFoundError(f"CSV file not found: {{csv_file}}")
-        
-        # Find .env file
-        if env_file_location:
-            env_file_location = os.path.expanduser(env_file_location)
-            if not os.path.exists(env_file_location):
-                raise FileNotFoundError(f".env file not found: {{env_file_location}}")
-            env_file = env_file_location
-        else:
-            env_file = find_env_file()
-            if not env_file:
-                raise FileNotFoundError("No .env file found. Specify --env_file_location or place .env in current/parent directory")
-        
-        # Check .gitignore
-        check_gitignore_for_env()
-        
-        # Load environment variables
-        load_dotenv(env_file)
-        
-        # Get database configuration
-        required_vars = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
-        optional_vars = ['DB_SCHEMA', 'DB_TABLE', 'DEBUG', 'SECRET_KEY']
-        db_config = {{}}
-        
-        for var in required_vars:
-            value = os.getenv(var)
-            if not value:
-                raise ValueError(f"Required environment variable not found: {{var}}")
-            db_config[var] = value
-        
-        for var in optional_vars:
-            value = os.getenv(var)
-            if value:
-                db_config[var] = value
-        
-        # Load metadata to validate CSV header
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        metadata_file = os.path.join(script_dir, '{csv_basename}.metadata.json')
-        
-        with open(metadata_file, 'r') as f:
-            metadata = json.load(f)
-        
-        # Determine schema and table names
-        if not db_schema_name:
-            db_schema_name = db_config.get('DB_SCHEMA')
-            if not db_schema_name:
-                raise ValueError("Database schema name must be provided via --db_schema_name or DB_SCHEMA environment variable")
-        
-        if not table_name:
-            table_name = db_config.get('DB_TABLE')
-            if not table_name:
-                raise ValueError("Table name must be provided via --table_name or DB_TABLE environment variable")
+        # Load and validate configuration
+        db_config, db_schema_name, table_name, metadata = ImportExecutor.load_and_validate_config(
+            env_file_location, csv_file, db_schema_name, table_name, '{csv_basename}.metadata.json', use_colors=False
+        )
         
         # Validate CSV header
         expected_columns = metadata['original_column_names']
-        validate_csv_header(csv_file, expected_columns)
+        ImportExecutor.validate_csv_header(csv_file, expected_columns, use_colors=False)
         
         # Check debug mode
         debug_mode = db_config.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on')
@@ -282,8 +123,11 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         if trample:
             click.echo("Warning: --trample flag is set. Existing table data will be overwritten.")
         
-        # Execute MySQL import
-        execute_mysql_import(db_config, db_schema_name, table_name, csv_file, trample)
+        # Execute MySQL import using the shared executor
+        ImportExecutor.execute_mysql_import(
+            db_config, db_schema_name, table_name, csv_file, trample, 
+            '{csv_basename}.create_table_mysql.sql', '{csv_basename}.import_data_mysql.sql'
+        )
         
         click.echo("✓ MySQL import completed successfully!")
         
