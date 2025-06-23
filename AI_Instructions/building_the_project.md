@@ -2,12 +2,12 @@
 
 Please read the AI_Instructions/core_design.md to understand the final design of the project. 
 
-Then read the ../nppest2/CSVRawImport.py and ../nppest2/import_raw_csv_file.py files which was the previous implementation. 
+We have successfully created the metadata extraction phase. Now we need to handle the next steps. 
 
-Then lets complete the first phase described in the core_design.md document. The metadata extractor process.
+Look again at ../nppest2/CSVRawImport.py which demonstrated how to build the CREATE TABLE files for the given csv file.
 
-Lets go a head and implement the Column Name Normalization class now and lets also add a ReadMe.md file that documents (for now) how to run the project from the raw sourcecode rather than from the PyPi package that it will eventually become.
+When we accept the output_dir argument for this stage, lets automatically create a sub-directory in that folder called cache_create_table_sql to save our work. 
+Take a look at ../nppest2/cache_create_table_sql/ to see some of the files that we created with MD5 strings in that folder and then renamed. 
+The new script should handle the md5 creation and name support in the same way as CSVRawImport whereever possible. 
 
-install libraries (like the click library) using pip to confirm they are installed as needed. The terminal already has the venv properly sourced for this purpose. 
 
-Flesh out the standard python PyPi pip-based project files in the repo as needed. 

@@ -84,8 +84,43 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
     Creates CREATE TABLE and data import SQL scripts for both MySQL and PostgreSQL
     based on the metadata extracted from a CSV file.
     """
-    click.echo("build_sql command - Not yet implemented")
-    # TODO: Implement SQL generation phase
+    try:
+        from .mysql_schema_generator import MySQLSchemaGenerator
+        from .postgresql_schema_generator import PostgreSQLSchemaGenerator
+        
+        # Convert to absolute path
+        metadata_path = os.path.abspath(from_metadata_json)
+        
+        # Determine output directory if not specified
+        if not output_dir:
+            output_dir = os.path.dirname(metadata_path)
+        
+        output_dir = os.path.abspath(output_dir)
+        
+        click.echo(f"Generating SQL scripts from: {metadata_path}")
+        click.echo(f"Output directory: {output_dir}")
+        
+        # Generate MySQL SQL scripts
+        click.echo("\n--- Generating MySQL SQL scripts ---")
+        mysql_files = MySQLSchemaGenerator.fromMetadataToSQL(
+            metadata_path, output_dir, overwrite_previous
+        )
+        
+        # Generate PostgreSQL SQL scripts
+        click.echo("\n--- Generating PostgreSQL SQL scripts ---")
+        postgres_files = PostgreSQLSchemaGenerator.fromMetadataToSQL(
+            metadata_path, output_dir, overwrite_previous
+        )
+        
+        click.echo(f"\n✓ Successfully generated SQL scripts:")
+        click.echo(f"  MySQL CREATE TABLE: {os.path.basename(mysql_files['create_table_sql'])}")
+        click.echo(f"  MySQL IMPORT DATA: {os.path.basename(mysql_files['import_data_sql'])}")
+        click.echo(f"  PostgreSQL CREATE TABLE: {os.path.basename(postgres_files['create_table_sql'])}")
+        click.echo(f"  PostgreSQL IMPORT DATA: {os.path.basename(postgres_files['import_data_sql'])}")
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @cli.command()
