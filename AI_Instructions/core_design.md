@@ -26,7 +26,7 @@ The code should have `#!/usr/bin/env python3` as its first line for eventual use
 For now, the code will be run using:
 
 ```bash
-> python3 csviper extract_metadata --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
+> python3 csviper full_compile --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
 ```
 
 That code will run all three of the build steps. However, each stage should also be runnable seperately using the following commands:
