@@ -90,9 +90,9 @@ except ImportError:
               help='Path to .env file (auto-detected if not specified)')
 @click.option('--csv_file', required=True, type=click.Path(),
               help='Path to CSV file to import')
-@click.option('--db_schema_name', required=False,
+@click.option('--db_schema_name', required=True,
               help='Database schema name (can be set via DB_SCHEMA env var)')
-@click.option('--table_name', required=False,
+@click.option('--table_name', required=True,
               help='Table name for the imported data (can be set via DB_TABLE env var)')
 @click.option('--trample', is_flag=True, default=False,
               help='Overwrite existing table data')
