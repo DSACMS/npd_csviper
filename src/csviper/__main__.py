@@ -7,6 +7,7 @@ import os
 import sys
 import click
 from .metadata_extractor import CSVMetadataExtractor
+from .exceptions import CSViperError
 
 
 @click.group()
@@ -58,8 +59,11 @@ def extract_metadata(from_csv, output_dir, overwrite_previous):
         click.echo(f"✓ Delimiter: '{metadata['delimiter']}'")
         click.echo(f"✓ Quote character: '{metadata['quote_character']}'")
         
+    except CSViperError as e:
+        click.echo(f"{e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        click.echo(f"Unexpected Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -111,8 +115,11 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
         click.echo(f"  PostgreSQL CREATE TABLE: {os.path.basename(postgres_files['create_table_sql'])}")
         click.echo(f"  PostgreSQL IMPORT DATA: {os.path.basename(postgres_files['import_data_sql'])}")
         
+    except CSViperError as e:
+        click.echo(f"{e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        click.echo(f"Unexpected Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -166,8 +173,11 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
         click.echo(f"  python {os.path.basename(postgresql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
         click.echo(f"\nNote: Schema and table names can be set via DB_SCHEMA and DB_TABLE environment variables")
         
+    except CSViperError as e:
+        click.echo(f"{e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        click.echo(f"Unexpected Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -241,8 +251,11 @@ def full_compile(ctx, from_csv, output_dir, overwrite_previous):
         click.echo("=" * 60)
         click.echo(f"All files generated in: {output_dir}")
         
+    except CSViperError as e:
+        click.echo(f"{e}", err=True)
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        click.echo(f"Unexpected Error: {e}", err=True)
         sys.exit(1)
 
 

@@ -6,8 +6,13 @@ import os
 import csv
 import json
 import hashlib
+import chardet
 from typing import Dict, Any, List
 from .column_normalizer import ColumnNormalizer
+from .exceptions import (
+    CSVFileError, CSVParsingError, CSVEncodingError, 
+    CSVValidationError, MetadataError, FileSystemError
+)
 
 
 class CSVMetadataExtractor:
@@ -77,10 +82,10 @@ class CSVMetadataExtractor:
         """
         # File validation
         if not os.path.isfile(full_path_to_csv_file):
-            raise FileNotFoundError(f"CSV file not found: {full_path_to_csv_file}")
+            raise CSVFileError(f"CSV file not found: {full_path_to_csv_file}", full_path_to_csv_file)
         
         if not os.access(full_path_to_csv_file, os.R_OK):
-            raise ValueError(f"CSV file is not readable: {full_path_to_csv_file}")
+            raise CSVFileError(f"CSV file is not readable: {full_path_to_csv_file}", full_path_to_csv_file)
         
         print(f"Analyzing CSV file: {os.path.basename(full_path_to_csv_file)}")
         
@@ -146,6 +151,49 @@ class CSVMetadataExtractor:
         return metadata
     
     @staticmethod
+    def _detect_file_encoding(file_path: str) -> str:
+        """
+        Detect the encoding of a file using chardet.
+        
+        Args:
+            file_path (str): Path to the file
+            
+        Returns:
+            str: Detected encoding
+            
+        Raises:
+            CSVEncodingError: If encoding cannot be detected
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                raw_data = f.read(10240)  # Read first 10KB for detection
+                
+            result = chardet.detect(raw_data)
+            if result['encoding'] is None:
+                raise CSVEncodingError(
+                    f"Could not detect file encoding. File may be binary or corrupted.",
+                    file_path
+                )
+            
+            confidence = result['confidence']
+            encoding = result['encoding']
+            
+            print(f"Detected encoding: {encoding} (confidence: {confidence:.2f})")
+            
+            # If confidence is low, warn the user
+            if confidence < 0.7:
+                print(f"Warning: Low confidence in encoding detection ({confidence:.2f}). "
+                      f"If you encounter issues, try converting the file to UTF-8.")
+            
+            return encoding
+            
+        except Exception as e:
+            raise CSVEncodingError(
+                f"Error detecting file encoding: {e}",
+                file_path
+            )
+    
+    @staticmethod
     def _detect_csv_format(file_path: str) -> tuple:
         """
         Detect CSV delimiter and quote character using csv.Sniffer.
@@ -157,10 +205,13 @@ class CSVMetadataExtractor:
             tuple: (delimiter, quote_char)
             
         Raises:
-            ValueError: If CSV format cannot be detected
+            CSVParsingError: If CSV format cannot be detected
+            CSVEncodingError: If file encoding issues are encountered
         """
+        # First try with UTF-8
+        encoding = 'utf-8'
         try:
-            with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+            with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
                 # Read a sample of the file for sniffing
                 sample = csvfile.read(8192)
                 csvfile.seek(0)
@@ -175,17 +226,58 @@ class CSVMetadataExtractor:
                 first_row = next(reader, None)
                 
                 if not header:
-                    raise ValueError("CSV file appears to be empty")
+                    raise CSVParsingError("CSV file appears to be empty", file_path)
                 
                 if first_row is None:
-                    raise ValueError("CSV file contains only a header row, no data")
+                    raise CSVParsingError("CSV file contains only a header row, no data", file_path)
                 
                 return dialect.delimiter, dialect.quotechar
                 
-        except (csv.Error, UnicodeDecodeError) as e:
-            raise ValueError(f"Unable to detect CSV format: {e}")
+        except UnicodeDecodeError as e:
+            # UTF-8 failed, try to detect the actual encoding
+            print(f"UTF-8 decoding failed: {e}")
+            print("Attempting to detect file encoding...")
+            
+            try:
+                detected_encoding = CSVMetadataExtractor._detect_file_encoding(file_path)
+                
+                # Try again with detected encoding
+                with open(file_path, 'r', newline='', encoding=detected_encoding) as csvfile:
+                    sample = csvfile.read(8192)
+                    csvfile.seek(0)
+                    
+                    sniffer = csv.Sniffer()
+                    dialect = sniffer.sniff(sample)
+                    
+                    reader = csv.reader(csvfile, dialect)
+                    header = next(reader)
+                    first_row = next(reader, None)
+                    
+                    if not header:
+                        raise CSVParsingError("CSV file appears to be empty", file_path)
+                    
+                    if first_row is None:
+                        raise CSVParsingError("CSV file contains only a header row, no data", file_path)
+                    
+                    print(f"Successfully read CSV file using {detected_encoding} encoding")
+                    return dialect.delimiter, dialect.quotechar
+                    
+            except Exception as encoding_error:
+                raise CSVEncodingError(
+                    f"Unable to read CSV file due to encoding issues. "
+                    f"Original UTF-8 error: {e}. "
+                    f"Encoding detection error: {encoding_error}. "
+                    f"Try converting the file to UTF-8 encoding.",
+                    file_path,
+                    encoding
+                )
+                
+        except csv.Error as e:
+            raise CSVParsingError(f"CSV parsing error: {e}", file_path)
         except StopIteration:
-            raise ValueError("CSV file does not contain sufficient data")
+            raise CSVParsingError("CSV file does not contain sufficient data", file_path)
+        except Exception as e:
+            raise CSVParsingError(f"Unexpected error while detecting CSV format: {e}", file_path)
     
     @staticmethod
     def _extract_column_names(file_path: str, delimiter: str, quote_char: str) -> tuple:
@@ -199,13 +291,37 @@ class CSVMetadataExtractor:
             
         Returns:
             tuple: (original_columns, normalized_column_mapping)
+            
+        Raises:
+            CSVEncodingError: If file encoding issues are encountered
+            CSVParsingError: If CSV parsing fails
         """
-        with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
-            original_columns = next(reader)
+        # Try UTF-8 first, then fall back to encoding detection
+        encoding = 'utf-8'
+        try:
+            with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
+                reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
+                original_columns = next(reader)
+        except UnicodeDecodeError:
+            # Fall back to detected encoding
+            try:
+                detected_encoding = CSVMetadataExtractor._detect_file_encoding(file_path)
+                with open(file_path, 'r', newline='', encoding=detected_encoding) as csvfile:
+                    reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
+                    original_columns = next(reader)
+            except Exception as e:
+                raise CSVEncodingError(
+                    f"Unable to read CSV header due to encoding issues: {e}",
+                    file_path
+                )
+        except Exception as e:
+            raise CSVParsingError(f"Error reading CSV header: {e}", file_path)
         
         # Normalize column names
-        normalized_columns = ColumnNormalizer.rename_column_list(original_columns)
+        try:
+            normalized_columns = ColumnNormalizer.rename_column_list(original_columns)
+        except Exception as e:
+            raise MetadataError(f"Error normalizing column names: {e}")
         
         return original_columns, normalized_columns
     
@@ -226,32 +342,73 @@ class CSVMetadataExtractor:
             Dict[str, int]: Maximum length for each original column name
             
         Raises:
-            ValueError: If rows have inconsistent column counts
+            CSVValidationError: If rows have inconsistent column counts
+            CSVEncodingError: If file encoding issues are encountered
         """
         max_lengths = {orig_col: 0 for orig_col in original_columns}
         expected_column_count = len(original_columns)
         
-        with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
-            
-            # Skip header row
-            next(reader)
-            
-            row_number = 1
-            for row in reader:
-                row_number += 1
+        # Try UTF-8 first, then fall back to encoding detection
+        encoding = 'utf-8'
+        try:
+            with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
+                reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
                 
-                # Check column count consistency
-                if len(row) != expected_column_count:
-                    raise ValueError(
-                        f"Inconsistent column count at row {row_number}: "
-                        f"Expected {expected_column_count} columns, found {len(row)}"
-                    )
+                # Skip header row
+                next(reader)
                 
-                # Update maximum lengths using original column names as keys
-                for i, value in enumerate(row):
-                    original_col = original_columns[i]
-                    max_lengths[original_col] = max(max_lengths[original_col], len(str(value)))
+                row_number = 1
+                for row in reader:
+                    row_number += 1
+                    
+                    # Check column count consistency
+                    if len(row) != expected_column_count:
+                        raise CSVValidationError(
+                            f"Inconsistent column count at row {row_number}: "
+                            f"Expected {expected_column_count} columns, found {len(row)}",
+                            file_path,
+                            row_number
+                        )
+                    
+                    # Update maximum lengths using original column names as keys
+                    for i, value in enumerate(row):
+                        original_col = original_columns[i]
+                        max_lengths[original_col] = max(max_lengths[original_col], len(str(value)))
+        
+        except UnicodeDecodeError:
+            # Fall back to detected encoding
+            try:
+                detected_encoding = CSVMetadataExtractor._detect_file_encoding(file_path)
+                with open(file_path, 'r', newline='', encoding=detected_encoding) as csvfile:
+                    reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quote_char)
+                    
+                    # Skip header row
+                    next(reader)
+                    
+                    row_number = 1
+                    for row in reader:
+                        row_number += 1
+                        
+                        # Check column count consistency
+                        if len(row) != expected_column_count:
+                            raise CSVValidationError(
+                                f"Inconsistent column count at row {row_number}: "
+                                f"Expected {expected_column_count} columns, found {len(row)}",
+                                file_path,
+                                row_number
+                            )
+                        
+                        # Update maximum lengths using original column names as keys
+                        for i, value in enumerate(row):
+                            original_col = original_columns[i]
+                            max_lengths[original_col] = max(max_lengths[original_col], len(str(value)))
+            except Exception as e:
+                raise CSVEncodingError(
+                    f"Unable to analyze column widths due to encoding issues: {e}",
+                    file_path
+                )
+        except Exception as e:
+            raise CSVValidationError(f"Error analyzing column widths: {e}", file_path)
         
         return max_lengths
     
