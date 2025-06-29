@@ -177,19 +177,20 @@ class ImportExecutor:
             click.echo("Warning: No .gitignore file found. Consider creating one and adding .env to it")
 
     @staticmethod
-    def validate_csv_header(csv_file, expected_columns, use_colors=True):
+    def validate_csv_header(csv_file, expected_columns, encoding='utf-8', use_colors=True):
         """
         Validate that CSV header matches expected columns from metadata.
         
         Args:
             csv_file (str): Path to CSV file
             expected_columns (list): Expected column names from metadata
+            encoding (str): File encoding to use for reading CSV
             use_colors (bool): Whether to use colored output for errors
             
         Raises:
             ValueError: If headers don't match
         """
-        with open(csv_file, 'r', newline='') as f:
+        with open(csv_file, 'r', newline='', encoding=encoding) as f:
             reader = csv.reader(f)
             actual_header = next(reader)
         
@@ -282,7 +283,7 @@ class ImportExecutor:
             use_colors (bool): Whether to use colored output for errors
             
         Returns:
-            tuple: (db_config, db_schema_name, table_name, metadata)
+            tuple: (db_config, db_schema_name, table_name, metadata, encoding)
         """
         # Expand user path (handle ~ symbol)
         csv_file = os.path.expanduser(csv_file)
@@ -382,7 +383,18 @@ class ImportExecutor:
                 else:
                     raise ValueError(error_msg)
         
-        return db_config, db_schema_name, table_name, metadata
+        # Get encoding from metadata, with fallback to utf-8
+        encoding = metadata.get('encoding', 'utf-8')
+        
+        # Log encoding information
+        if 'encoding' in metadata:
+            click.echo(f"Using encoding from metadata: {encoding}")
+            if 'encoding_notes' in metadata:
+                click.echo(f"Encoding notes: {metadata['encoding_notes']}")
+        else:
+            click.echo(f"No encoding in metadata, using default: {encoding}")
+        
+        return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
     def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file):
