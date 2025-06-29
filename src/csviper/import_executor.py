@@ -397,7 +397,7 @@ class ImportExecutor:
         return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
-    def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file):
+    def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8'):
         """
         Execute PostgreSQL import process.
         
@@ -408,12 +408,18 @@ class ImportExecutor:
             csv_file (str): Path to CSV file
             trample (bool): Whether to overwrite existing data
             create_table_sql_file (str): Name of the CREATE TABLE SQL file
+            encoding (str): File encoding to use for reading CSV
         """
         try:
             import psycopg2
             import psycopg2.extras
-        except ImportError:
-            raise ImportError(Colors.dark_red("psycopg2 library is required for PostgreSQL imports. Install with: pip install psycopg2-binary"))
+        except ImportError as e:
+            from .exceptions import ImportExecutionError
+            raise ImportExecutionError(
+                "psycopg2 library is required for PostgreSQL imports. Install with: pip install psycopg2-binary",
+                script_type="PostgreSQL",
+                original_error=e
+            )
         
         # Load SQL files
         create_table_sql = ImportExecutor.load_sql_file(create_table_sql_file)
@@ -423,13 +429,33 @@ class ImportExecutor:
         create_table_sql = ImportExecutor.replace_sql_placeholders(create_table_sql, db_schema_name, table_name, csv_full_path)
         
         # Connect to database
-        connection = psycopg2.connect(
-            host=db_config['DB_HOST'],
-            port=int(db_config['DB_PORT']),
-            user=db_config['DB_USER'],
-            password=db_config['DB_PASSWORD'],
-            database=db_config['DB_NAME']
-        )
+        try:
+            connection = psycopg2.connect(
+                host=db_config['DB_HOST'],
+                port=int(db_config['DB_PORT']),
+                user=db_config['DB_USER'],
+                password=db_config['DB_PASSWORD'],
+                database=db_config['DB_NAME']
+            )
+        except psycopg2.Error as e:
+            from .exceptions import DatabaseConnectionError
+            connection_details = {
+                'host': db_config['DB_HOST'],
+                'port': db_config['DB_PORT'],
+                'user': db_config['DB_USER'],
+                'database': db_config['DB_NAME']
+            }
+            raise DatabaseConnectionError(
+                f"Failed to connect to PostgreSQL database: {str(e)}",
+                db_type="PostgreSQL",
+                connection_details=connection_details
+            )
+        except Exception as e:
+            from .exceptions import DatabaseConnectionError
+            raise DatabaseConnectionError(
+                f"Unexpected error connecting to PostgreSQL database: {str(e)}",
+                db_type="PostgreSQL"
+            )
         
         try:
             with connection.cursor() as cursor:
@@ -485,7 +511,7 @@ class ImportExecutor:
                         self.progress_bar.__exit__(None, None, None)
                         self.file_obj.close()
                 
-                with open(csv_file, 'r') as f:
+                with open(csv_file, 'r', encoding=encoding) as f:
                     progress_wrapper = ProgressFileWrapper(f, file_size)
                     try:
                         cursor.copy_expert(copy_sql, progress_wrapper)
@@ -539,8 +565,13 @@ class ImportExecutor:
         """
         try:
             import pymysql
-        except ImportError:
-            raise ImportError("pymysql library is required for MySQL imports. Install with: pip install pymysql")
+        except ImportError as e:
+            from .exceptions import ImportExecutionError
+            raise ImportExecutionError(
+                "pymysql library is required for MySQL imports. Install with: pip install pymysql",
+                script_type="MySQL",
+                original_error=e
+            )
         
         # Load SQL files
         create_table_sql = ImportExecutor.load_sql_file(create_table_sql_file)
@@ -552,14 +583,34 @@ class ImportExecutor:
         import_data_sql = ImportExecutor.replace_sql_placeholders(import_data_sql, db_schema_name, table_name, csv_full_path)
         
         # Connect to database
-        connection = pymysql.connect(
-            host=db_config['DB_HOST'],
-            port=int(db_config['DB_PORT']),
-            user=db_config['DB_USER'],
-            password=db_config['DB_PASSWORD'],
-            database=db_config['DB_NAME'],
-            local_infile=True
-        )
+        try:
+            connection = pymysql.connect(
+                host=db_config['DB_HOST'],
+                port=int(db_config['DB_PORT']),
+                user=db_config['DB_USER'],
+                password=db_config['DB_PASSWORD'],
+                database=db_config['DB_NAME'],
+                local_infile=True
+            )
+        except pymysql.Error as e:
+            from .exceptions import DatabaseConnectionError
+            connection_details = {
+                'host': db_config['DB_HOST'],
+                'port': db_config['DB_PORT'],
+                'user': db_config['DB_USER'],
+                'database': db_config['DB_NAME']
+            }
+            raise DatabaseConnectionError(
+                f"Failed to connect to MySQL database: {str(e)}",
+                db_type="MySQL",
+                connection_details=connection_details
+            )
+        except Exception as e:
+            from .exceptions import DatabaseConnectionError
+            raise DatabaseConnectionError(
+                f"Unexpected error connecting to MySQL database: {str(e)}",
+                db_type="MySQL"
+            )
         
         try:
             with connection.cursor() as cursor:

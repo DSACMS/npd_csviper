@@ -104,13 +104,41 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
     """
     try:
         # Load and validate configuration
-        db_config, db_schema_name, table_name, metadata = ImportExecutor.load_and_validate_config(
-            env_file_location, csv_file, db_schema_name, table_name, '{csv_basename}.metadata.json'
-        )
+        try:
+            db_config, db_schema_name, table_name, metadata, encoding = ImportExecutor.load_and_validate_config(
+                env_file_location, csv_file, db_schema_name, table_name, '{csv_basename}.metadata.json'
+            )
+        except ValueError as e:
+            if "too many values to unpack" in str(e):
+                from csviper.exceptions import ImportExecutionError
+                raise ImportExecutionError(
+                    "Configuration loading failed due to version mismatch. "
+                    "This error typically occurs when the import script expects a different number of return values "
+                    "from the configuration loader. Please regenerate the import scripts.",
+                    script_type="PostgreSQL",
+                    original_error=e
+                )
+            else:
+                raise
+        except Exception as e:
+            from csviper.exceptions import ImportExecutionError
+            raise ImportExecutionError(
+                f"Failed to load and validate configuration: {{str(e)}}",
+                script_type="PostgreSQL",
+                original_error=e
+            )
         
-        # Validate CSV header
-        expected_columns = metadata['original_column_names']
-        ImportExecutor.validate_csv_header(csv_file, expected_columns)
+        # Validate CSV header with proper encoding
+        try:
+            expected_columns = metadata['original_column_names']
+            ImportExecutor.validate_csv_header(csv_file, expected_columns, encoding)
+        except Exception as e:
+            from csviper.exceptions import ImportExecutionError
+            raise ImportExecutionError(
+                f"CSV header validation failed: {{str(e)}}",
+                script_type="PostgreSQL",
+                original_error=e
+            )
         
         # Check debug mode
         debug_mode = db_config.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on')
@@ -126,7 +154,7 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
         # Execute PostgreSQL import using the shared executor
         ImportExecutor.execute_postgresql_import(
             db_config, db_schema_name, table_name, csv_file, trample, 
-            '{csv_basename}.create_table_postgres.sql'
+            '{csv_basename}.create_table_postgres.sql', encoding
         )
         
         click.echo("✓ PostgreSQL import completed successfully!")

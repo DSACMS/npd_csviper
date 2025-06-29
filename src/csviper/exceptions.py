@@ -86,3 +86,55 @@ class CacheError(CSViperError):
     
     def __init__(self, message: str):
         super().__init__(message, "Cache Error")
+
+
+class ImportExecutionError(CSViperError):
+    """Errors related to import script execution."""
+    
+    def __init__(self, message: str, script_type: str | None = None, original_error: Exception | None = None):
+        super().__init__(message, "Import Execution Error")
+        self.script_type = script_type
+        self.original_error = original_error
+        
+    def __str__(self):
+        base_msg = super().__str__()
+        if self.script_type:
+            base_msg = f"{base_msg} (Script Type: {self.script_type})"
+        if self.original_error:
+            base_msg = f"{base_msg}\nOriginal Error: {type(self.original_error).__name__}: {self.original_error}"
+        return base_msg
+
+
+class ConfigurationError(CSViperError):
+    """Errors related to configuration and environment setup."""
+    
+    def __init__(self, message: str, config_type: str | None = None):
+        super().__init__(message, "Configuration Error")
+        self.config_type = config_type
+        
+    def __str__(self):
+        base_msg = super().__str__()
+        if self.config_type:
+            base_msg = f"{base_msg} (Config Type: {self.config_type})"
+        return base_msg
+
+
+class DatabaseConnectionError(CSViperError):
+    """Errors related to database connections."""
+    
+    def __init__(self, message: str, db_type: str | None = None, connection_details: dict | None = None):
+        super().__init__(message, "Database Connection Error")
+        self.db_type = db_type
+        self.connection_details = connection_details or {}
+        
+    def __str__(self):
+        base_msg = super().__str__()
+        if self.db_type:
+            base_msg = f"{base_msg} (Database Type: {self.db_type})"
+        if self.connection_details:
+            # Only show safe connection details (no passwords)
+            safe_details = {k: v for k, v in self.connection_details.items() 
+                          if k.lower() not in ['password', 'passwd', 'pwd']}
+            if safe_details:
+                base_msg = f"{base_msg}\nConnection Details: {safe_details}"
+        return base_msg
