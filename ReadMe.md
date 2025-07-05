@@ -15,23 +15,27 @@ CSViper is a command-line tool that automates the process of analyzing CSV files
 ### From Source (Development)
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/ftrotter/csviper.git
 cd csviper
 ```
 
 2. Create and activate a virtual environment:
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 3. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. Install in development mode:
+
 ```bash
 pip install -e .
 ```
@@ -55,6 +59,7 @@ python -m csviper extract_metadata --from_csv=data.csv --output_dir=./output/
 ```
 
 Options:
+
 - `--from_csv`: Path to the CSV file to analyze (required)
 - `--output_dir`: Output directory (defaults to CSV filename without extension)
 - `--overwrite_previous`: Overwrite existing output files
@@ -92,11 +97,13 @@ python -m csviper extract_metadata --from_csv=data.csv --output_dir=./output/ --
 
 1. Clone the repository and navigate to the project directory
 2. Source the virtual environment setup script:
+
 ```bash
 source source_me_to_get_venv.sh
 ```
 
 3. Install development dependencies:
+
 ```bash
 pip install -e ".[dev]"
 ```
@@ -121,7 +128,7 @@ flake8 src/
 
 ## Project Structure
 
-```
+```tree
 csviper/
 ├── src/csviper/
 │   ├── __init__.py              # Package initialization
@@ -143,20 +150,24 @@ csviper/
 CSViper generates several files during processing:
 
 ### Phase 1 Output
+
 - `{filename}.metadata.json`: Contains CSV structure analysis, normalized column names, and column width information
 
 ### Phase 2 Output (Coming Soon)
+
 - `{filename}.create_table_mysql.sql`: MySQL CREATE TABLE script
 - `{filename}.create_table_postgres.sql`: PostgreSQL CREATE TABLE script
 - `{filename}.import_data_mysql.sql`: MySQL data import script
 - `{filename}.import_data_postgres.sql`: PostgreSQL data import script
 
 ### Phase 3 Output (Coming Soon)
+
 - `go.py`: Standalone Python script for database import
 
 ## Example Workflow
 
 1. **Analyze your CSV file**:
+
 ```bash
 python -m csviper extract_metadata --from_csv=sales_data.csv
 ```
@@ -164,11 +175,13 @@ python -m csviper extract_metadata --from_csv=sales_data.csv
 2. **Review the generated metadata** in `sales_data/sales_data.metadata.json`
 
 3. **Generate SQL scripts** (coming soon):
+
 ```bash
 python -m csviper build_sql --from_metadata_json=sales_data/sales_data.metadata.json
 ```
 
 4. **Create import script** (coming soon):
+
 ```bash
 python -m csviper build_import_script --from_resource_dir=sales_data/
 ```
