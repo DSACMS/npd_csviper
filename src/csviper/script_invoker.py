@@ -18,7 +18,8 @@ class CompiledScriptInvoker:
     
     @staticmethod
     def invoke_from_directory(run_import_from: str, import_data_from_dir: str, 
-                            database_type: str) -> None:
+                            database_type: str, db_schema_name: Optional[str] = None,
+                            table_name: Optional[str] = None) -> None:
         """
         Main entry point for directory-based import invocation.
         
@@ -26,6 +27,8 @@ class CompiledScriptInvoker:
             run_import_from (str): Directory containing compiled CSViper scripts and metadata
             import_data_from_dir (str): Directory to search for data files
             database_type (str): Database type ('mysql' or 'postgresql')
+            db_schema_name (Optional[str]): Database schema name to pass to the import script
+            table_name (Optional[str]): Table name to pass to the import script
             
         Raises:
             CSViperError: If any step of the process fails
@@ -55,7 +58,7 @@ class CompiledScriptInvoker:
             
             # 4. Execute the import script
             CompiledScriptInvoker._execute_import_script(
-                run_import_from, latest_file, database_type
+                run_import_from, latest_file, database_type, db_schema_name, table_name
             )
             
         except Exception as e:
@@ -212,7 +215,9 @@ class CompiledScriptInvoker:
                 print("Please enter 'y' for yes or 'n' for no.")
     
     @staticmethod
-    def _execute_import_script(script_dir: str, csv_file: str, db_type: str) -> None:
+    def _execute_import_script(script_dir: str, csv_file: str, db_type: str, 
+                             db_schema_name: Optional[str] = None, 
+                             table_name: Optional[str] = None) -> None:
         """
         Execute go.mysql.py or go.postgresql.py with the CSV file.
         
@@ -220,6 +225,8 @@ class CompiledScriptInvoker:
             script_dir (str): Directory containing the import scripts
             csv_file (str): Path to the CSV file to import
             db_type (str): Database type ('mysql' or 'postgresql')
+            db_schema_name (Optional[str]): Database schema name to pass to the import script
+            table_name (Optional[str]): Table name to pass to the import script
             
         Raises:
             FileSystemError: If import script is not found
@@ -243,6 +250,13 @@ class CompiledScriptInvoker:
         
         # Build command to execute
         cmd = [sys.executable, script_path, f"--csv_file={csv_file}"]
+        
+        # Add optional arguments if provided
+        if db_schema_name:
+            cmd.append(f"--db_schema_name={db_schema_name}")
+        
+        if table_name:
+            cmd.append(f"--table_name={table_name}")
         
         print(f"\nExecuting import script:")
         print(f"  Command: {' '.join(cmd)}")
@@ -269,7 +283,7 @@ class CompiledScriptInvoker:
             raise CSViperError(f"Unexpected error during script execution: {e}")
     
     @staticmethod
-    def _format_file_size(size_bytes: int) -> str:
+    def _format_file_size(size_bytes: float) -> str:
         """
         Format file size in human-readable format.
         

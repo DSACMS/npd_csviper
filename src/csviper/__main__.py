@@ -189,7 +189,11 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
               help='Directory to search for data files')
 @click.option('--database_type', required=True, type=click.Choice(['mysql', 'postgresql']),
               help='Database type for import script selection')
-def invoke_compiled_script(run_import_from, import_data_from_dir, database_type):
+@click.option('--db_schema_name', type=str,
+              help='Database schema name to pass to the import script')
+@click.option('--table_name', type=str,
+              help='Table name to pass to the import script')
+def invoke_compiled_script(run_import_from, import_data_from_dir, database_type, db_schema_name, table_name):
     """
     Execute compiled import scripts with automatic file discovery.
     
@@ -205,7 +209,9 @@ def invoke_compiled_script(run_import_from, import_data_from_dir, database_type)
         CompiledScriptInvoker.invoke_from_directory(
             run_import_from=run_import_from,
             import_data_from_dir=import_data_from_dir,
-            database_type=database_type
+            database_type=database_type,
+            db_schema_name=db_schema_name,
+            table_name=table_name
         )
         
     except CSViperError as e:
