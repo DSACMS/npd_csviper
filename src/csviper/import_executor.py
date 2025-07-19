@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import csv
+import io
 import click
 from dotenv import load_dotenv
 
@@ -467,7 +468,7 @@ class ImportExecutor:
         return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
-    def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8'):
+    def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None):
         """
         Execute PostgreSQL import process.
         
@@ -479,6 +480,7 @@ class ImportExecutor:
             trample (bool): Whether to overwrite existing data
             create_table_sql_file (str): Name of the CREATE TABLE SQL file
             encoding (str): File encoding to use for reading CSV
+            import_only_lines (int, optional): Number of lines to import for testing. Defaults to None (all lines).
         """
         try:
             import psycopg2
@@ -542,51 +544,73 @@ class ImportExecutor:
                 # Import data using COPY FROM STDIN with progress bar
                 click.echo("Importing data...")
                 
-                # Get file size for progress tracking
-                file_size = os.path.getsize(csv_file)
-                
                 # Build the COPY command
                 copy_sql = f"COPY {db_schema_name}.{table_name} FROM STDIN WITH CSV HEADER"
-                
-                # Create a progress bar wrapper for the file
-                class ProgressFileWrapper:
-                    def __init__(self, file_obj, file_size):
-                        self.file_obj = file_obj
-                        self.file_size = file_size
-                        self.bytes_read = 0
-                        self.progress_bar = click.progressbar(length=file_size, 
-                                                            label='Uploading CSV data',
-                                                            show_percent=True,
-                                                            show_eta=True)
-                        self.progress_bar.__enter__()
+
+                if import_only_lines and int(import_only_lines) > 0:
+                    limit = int(import_only_lines)
+                    click.echo(f"Limiting import to {limit} lines for testing.")
                     
-                    def read(self, size=-1):
-                        data = self.file_obj.read(size)
-                        if data:
-                            self.bytes_read += len(data)
-                            self.progress_bar.update(len(data))
-                        return data
+                    # Create an in-memory text buffer
+                    buffer = io.StringIO()
                     
-                    def readline(self):
-                        line = self.file_obj.readline()
-                        if line:
-                            self.bytes_read += len(line)
-                            self.progress_bar.update(len(line))
-                        return line
+                    with open(csv_file, 'r', encoding=encoding) as f:
+                        # Write header
+                        header = f.readline()
+                        buffer.write(header)
+                        
+                        # Write limited number of lines
+                        for i, line in enumerate(f):
+                            if i >= limit:
+                                break
+                            buffer.write(line)
                     
-                    def __getattr__(self, name):
-                        return getattr(self.file_obj, name)
+                    buffer.seek(0)  # Rewind buffer to the beginning
+                    cursor.copy_expert(copy_sql, buffer)
+
+                else:
+                    # Get file size for progress tracking
+                    file_size = os.path.getsize(csv_file)
                     
-                    def close(self):
-                        self.progress_bar.__exit__(None, None, None)
-                        self.file_obj.close()
-                
-                with open(csv_file, 'r', encoding=encoding) as f:
-                    progress_wrapper = ProgressFileWrapper(f, file_size)
-                    try:
-                        cursor.copy_expert(copy_sql, progress_wrapper)
-                    finally:
-                        progress_wrapper.close()
+                    # Create a progress bar wrapper for the file
+                    class ProgressFileWrapper:
+                        def __init__(self, file_obj, file_size):
+                            self.file_obj = file_obj
+                            self.file_size = file_size
+                            self.bytes_read = 0
+                            self.progress_bar = click.progressbar(length=file_size, 
+                                                                label='Uploading CSV data',
+                                                                show_percent=True,
+                                                                show_eta=True)
+                            self.progress_bar.__enter__()
+                        
+                        def read(self, size=-1):
+                            data = self.file_obj.read(size)
+                            if data:
+                                self.bytes_read += len(data)
+                                self.progress_bar.update(len(data))
+                            return data
+                        
+                        def readline(self):
+                            line = self.file_obj.readline()
+                            if line:
+                                self.bytes_read += len(line)
+                                self.progress_bar.update(len(line))
+                            return line
+                        
+                        def __getattr__(self, name):
+                            return getattr(self.file_obj, name)
+                        
+                        def close(self):
+                            self.progress_bar.__exit__(None, None, None)
+                            self.file_obj.close()
+                    
+                    with open(csv_file, 'r', encoding=encoding) as f:
+                        progress_wrapper = ProgressFileWrapper(f, file_size)
+                        try:
+                            cursor.copy_expert(copy_sql, progress_wrapper)
+                        finally:
+                            progress_wrapper.close()
                 
                 # Get row count
                 cursor.execute(f"SELECT COUNT(*) FROM {db_schema_name}.{table_name}")
