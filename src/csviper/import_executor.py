@@ -468,7 +468,7 @@ class ImportExecutor:
         return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
-    def execute_postgresql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None):
+    def execute_postgresql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None):
         """
         Execute PostgreSQL import process.
         
@@ -644,7 +644,7 @@ class ImportExecutor:
             connection.close()
 
     @staticmethod
-    def execute_mysql_import(db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, import_data_sql_file):
+    def execute_mysql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, import_data_sql_file):
         """
         Execute MySQL import process.
         
