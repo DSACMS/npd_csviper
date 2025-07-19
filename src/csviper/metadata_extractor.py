@@ -8,7 +8,7 @@ import json
 import hashlib
 import chardet
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from .column_normalizer import ColumnNormalizer
 from .exceptions import (
     CSVFileError, CSVParsingError, CSVEncodingError, 
@@ -80,14 +80,14 @@ class CSVMetadataExtractor:
         return filename
     
     @staticmethod
-    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: str = None, overwrite_previous: bool = False) -> Dict[str, Any]:
+    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: Optional[str] = None, overwrite_previous: bool = False) -> Dict[str, Any]:
         """
         Extract metadata from a CSV file and optionally save to JSON with hash-based caching.
         
         Args:
             full_path_to_csv_file (str): Absolute path to the local CSV file
-            output_dir (str, optional): Directory to save metadata JSON file
-            overwrite_previous (bool): Whether to overwrite existing cached metadata
+            output_dir (Optional[str], optional): Directory to save metadata JSON file
+            overwrite_previous (bool): Whether to overwrite existing cached metadata. Corresponds to --trample.
             
         Returns:
             Dict[str, Any]: Metadata dictionary containing file info, columns, and analysis
@@ -95,6 +95,7 @@ class CSVMetadataExtractor:
         Raises:
             FileNotFoundError: If the CSV file does not exist
             ValueError: If the CSV file is invalid or has inconsistent structure
+            MetadataError: If overwrite is prevented by the metadata file itself.
         """
         # File validation
         if not os.path.isfile(full_path_to_csv_file):
@@ -102,20 +103,24 @@ class CSVMetadataExtractor:
         
         if not os.access(full_path_to_csv_file, os.R_OK):
             raise CSVFileError(f"CSV file is not readable: {full_path_to_csv_file}", full_path_to_csv_file)
-        
-        print(f"Analyzing CSV file: {os.path.basename(full_path_to_csv_file)}")
-        
-        # Get basic file info
+
         filename = os.path.basename(full_path_to_csv_file)
         filename_without_ext = os.path.splitext(filename)[0]
-        
-        # If output directory is specified, check for cached metadata based on column headers hash
-        if output_dir and not overwrite_previous:
-            cached_metadata = CSVMetadataExtractor._get_cached_metadata(
-                full_path_to_csv_file, output_dir, filename_without_ext
+
+        # Check for existing metadata and handle overwrite logic
+        if output_dir:
+            # This call now encapsulates all the logic for caching and overwrite prevention.
+            # It returns metadata if it should be used, or None if generation should proceed.
+            existing_metadata = CSVMetadataExtractor._get_cached_metadata(
+                csv_file_path=full_path_to_csv_file,
+                output_dir=output_dir,
+                filename_base=filename_without_ext,
+                overwrite_previous=overwrite_previous
             )
-            if cached_metadata:
-                return cached_metadata
+            if existing_metadata:
+                return existing_metadata
+
+        print(f"Analyzing CSV file: {os.path.basename(full_path_to_csv_file)}")
         
         # Generate new metadata
         file_size = os.path.getsize(full_path_to_csv_file)
@@ -152,6 +157,7 @@ class CSVMetadataExtractor:
         
         # Build metadata dictionary
         metadata = {
+            "allow_recompile_to_overwrite": True,
             "filename": filename,
             "filename_without_extension": filename_without_ext,
             "file_glob_pattern": file_glob_pattern,
@@ -498,30 +504,47 @@ class CSVMetadataExtractor:
         return max_lengths
     
     @staticmethod
-    def _get_cached_metadata(csv_file_path: str, output_dir: str, filename_base: str) -> Dict[str, Any]:
+    def _get_cached_metadata(csv_file_path: str, output_dir: str, filename_base: str, overwrite_previous: bool) -> Optional[Dict[str, Any]]:
         """
-        Check for cached metadata based on column headers hash.
+        Check for cached metadata. Also handles the 'allow_recompile_to_overwrite' flag.
         
         Args:
             csv_file_path (str): Path to the CSV file
             output_dir (str): Output directory where metadata might be cached
             filename_base (str): Base filename (without extension)
+            overwrite_previous (bool): Corresponds to the --trample flag.
             
         Returns:
-            Dict[str, Any]: Cached metadata if found and headers match, None otherwise
+            Optional[Dict[str, Any]]: Cached metadata if found and valid, None otherwise.
         """
-        # Check if metadata file exists
         json_filename = f"{filename_base}.metadata.json"
         json_path = os.path.join(output_dir, json_filename)
         
         if not os.path.exists(json_path):
-            return None
+            return None  # No metadata, so proceed with generation.
         
         try:
-            # Load existing metadata
             with open(json_path, 'r', encoding='utf-8') as jsonfile:
                 existing_metadata = json.load(jsonfile)
-            
+
+            # Check for the override prevention flag FIRST. This is the master switch.
+            if not existing_metadata.get('allow_recompile_to_overwrite', True):
+                if overwrite_previous:  # --trample is set
+                    raise MetadataError(
+                        "You are asking me to trample but the metadata file is saying no. "
+                        f"Set 'allow_recompile_to_overwrite' to true in {json_path} to proceed."
+                    )
+                else:
+                    print(f"Metadata overwrite prevented by 'allow_recompile_to_overwrite: false' in {json_path}.")
+                    print("Skipping metadata generation.")
+                    return existing_metadata  # Return existing metadata without any further checks.
+
+            # If we are here, it means recompile is allowed.
+            # Now, check if we should use cache if --trample is not set.
+            if overwrite_previous:
+                print("`--trample` is set, forcing metadata regeneration.")
+                return None  # Force regeneration
+
             # Check if the existing metadata has a column headers hash
             if 'column_headers_hash' not in existing_metadata:
                 print(f"Existing metadata lacks column headers hash, regenerating...")
@@ -533,19 +556,13 @@ class CSVMetadataExtractor:
                 csv_file_path, delimiter, quote_char
             )
             
-            # Generate current column headers hash
             column_headers_str = ','.join([col.lower() for col in original_columns])
             current_hash = hashlib.md5(column_headers_str.encode()).hexdigest()
             
-            # Compare hashes
             if existing_metadata['column_headers_hash'] == current_hash:
                 print(f"Using cached metadata (column headers unchanged): {json_path}")
-                # Update the full path in case the file was moved
                 existing_metadata['full_path'] = csv_file_path
-                
-                # Validate that the cached metadata doesn't have duplicate normalized column names
                 CSVMetadataExtractor._validate_column_mapping_uniqueness(existing_metadata)
-                
                 return existing_metadata
             else:
                 print(f"Column headers changed, regenerating metadata...")
