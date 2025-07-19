@@ -530,10 +530,17 @@ class CSVMetadataExtractor:
             # Check for the override prevention flag FIRST. This is the master switch.
             if not existing_metadata.get('allow_recompile_to_overwrite', True):
                 if overwrite_previous:  # --trample is set
-                    raise MetadataError(
-                        "You are asking me to trample but the metadata file is saying no. "
-                        f"Set 'allow_recompile_to_overwrite' to true in {json_path} to proceed."
-                    )
+                    # ANSI color codes
+                    RED = "\033[91m"
+                    RESET = "\033[0m"
+                    
+                    error_line1 = f"{RED}You are asking me to trample but the metadata file is saying no.{RESET}"
+                    error_line2 = f"Set 'allow_recompile_to_overwrite' to true in {json_path} to proceed."
+                    
+                    # Format with blank lines above and below
+                    formatted_error_msg = f"\n{error_line1}\n{error_line2}\n"
+                    
+                    raise MetadataError(formatted_error_msg)
                 else:
                     print(f"Metadata overwrite prevented by 'allow_recompile_to_overwrite: false' in {json_path}.")
                     print("Skipping metadata generation.")
