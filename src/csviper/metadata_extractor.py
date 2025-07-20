@@ -9,11 +9,23 @@ import hashlib
 import chardet
 import re
 from typing import Dict, Any, List, Optional
+import click
 from .column_normalizer import ColumnNormalizer
 from .exceptions import (
     CSVFileError, CSVParsingError, CSVEncodingError, 
     CSVValidationError, MetadataError, FileSystemError
 )
+
+
+class Colors:
+    """ANSI color codes for terminal output"""
+    DARK_RED = '\033[31m'
+    RESET = '\033[0m'
+    
+    @staticmethod
+    def dark_red(text):
+        """Format text in dark red color"""
+        return f"{Colors.DARK_RED}{text}{Colors.RESET}"
 
 
 class CSVMetadataExtractor:
@@ -538,9 +550,9 @@ class CSVMetadataExtractor:
                     error_line2 = f"Set 'allow_recompile_to_overwrite' to true in {json_path} to proceed."
                     
                     # Format with blank lines above and below
-                    formatted_error_msg = f"\n{error_line1}\n{error_line2}\n"
-                    
-                    raise MetadataError(formatted_error_msg)
+                    warning_msg = f"Warning: You are asking to trample, but the metadata file says no. Set 'allow_recompile_to_overwrite' to true in {json_path} to proceed."
+                    click.echo(Colors.dark_red(warning_msg))
+                    return existing_metadata # Return existing metadata to allow process to continue
                 else:
                     print(f"Metadata overwrite prevented by 'allow_recompile_to_overwrite: false' in {json_path}.")
                     print("Skipping metadata generation.")

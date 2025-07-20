@@ -6,6 +6,18 @@ Contains shared functionality between database-specific import script generators
 import os
 import json
 from datetime import datetime
+import click
+
+
+class Colors:
+    """ANSI color codes for terminal output"""
+    DARK_RED = '\033[31m'
+    RESET = '\033[0m'
+    
+    @staticmethod
+    def dark_red(text):
+        """Format text in dark red color"""
+        return f"{Colors.DARK_RED}{text}{Colors.RESET}"
 
 
 class BaseImportScriptGenerator:
@@ -34,6 +46,9 @@ class BaseImportScriptGenerator:
             FileNotFoundError: If required files are not found
             ValueError: If metadata is invalid
         """
+        if generator_class is None:
+            raise ValueError("A generator_class must be provided to fromResourceDirToScript.")
+
         resource_dir = os.path.abspath(resource_dir)
         
         if output_dir is None:
@@ -61,7 +76,8 @@ class BaseImportScriptGenerator:
         go_script_path = os.path.join(output_dir, script_filename)
         
         if os.path.exists(go_script_path) and not overwrite_previous:
-            raise FileExistsError(f"{script_filename} already exists: {go_script_path}. Use overwrite_previous=True to overwrite.")
+            click.echo(Colors.dark_red(f"Warning: {script_filename} already exists: {go_script_path}. Use --overwrite to overwrite."))
+            return go_script_path
         
         script_content = generator_class._generate_script_content(metadata)
         

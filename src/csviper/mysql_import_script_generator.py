@@ -157,7 +157,7 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample):
             '{csv_basename}.create_table_mysql.sql', '{csv_basename}.import_data_mysql.sql'
         )
         
-        click.echo("✓ MySQL import completed successfully!")
+        click.echo("✓ MySQL import created successfully! Look for 'go.mysql.py'")
         
     except Exception as e:
         click.echo(f"Error: {{e}}", err=True)

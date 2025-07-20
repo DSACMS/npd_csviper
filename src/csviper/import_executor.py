@@ -531,6 +531,18 @@ class ImportExecutor:
         
         try:
             with connection.cursor() as cursor:
+                # Check if table exists
+                cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = %s AND table_name = %s)", (db_schema_name, table_name))
+                table_exists = cursor.fetchone()[0]
+
+                if table_exists:
+                    if not trample:
+                        click.echo(Colors.dark_red(f"Warning: Table {db_schema_name}.{table_name} already exists. Skipping import. Use --trample to overwrite."))
+                        return
+                    else:
+                        click.echo(f"Table {db_schema_name}.{table_name} exists and trample is True. Dropping table.")
+                        cursor.execute(f"DROP TABLE {db_schema_name}.{table_name}")
+
                 # Create schema if it doesn't exist
                 cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {db_schema_name}")
                 
@@ -708,6 +720,18 @@ class ImportExecutor:
         
         try:
             with connection.cursor() as cursor:
+                # Check if table exists
+                cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s", (db_schema_name, table_name))
+                table_exists = cursor.fetchone()[0] > 0
+
+                if table_exists:
+                    if not trample:
+                        click.echo(Colors.dark_red(f"Warning: Table {db_schema_name}.{table_name} already exists. Skipping import. Use --trample to overwrite."))
+                        return
+                    else:
+                        click.echo(f"Table {db_schema_name}.{table_name} exists and trample is True. Dropping table.")
+                        cursor.execute(f"DROP TABLE `{db_schema_name}`.`{table_name}`")
+
                 # Execute CREATE TABLE statements
                 statements = [stmt.strip() for stmt in create_table_sql.split(';') if stmt.strip()]
                 for statement in statements:

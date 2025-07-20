@@ -171,7 +171,7 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample, impor
             import_only_lines=import_only_lines
         )
         
-        click.echo("✓ PostgreSQL import completed successfully!")
+        click.echo("✓ PostgreSQL import created successfully! look for 'go.postgresql.py'")
         
     except Exception as e:
         from csviper.import_executor import Colors
