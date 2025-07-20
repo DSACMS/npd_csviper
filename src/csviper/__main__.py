@@ -195,7 +195,9 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
               help='Table name to pass to the import script')
 @click.option('--import_only_lines', type=int,
                 help='Limit the import to a specific number of lines')
-def invoke_compiled_script(run_import_from, import_data_from_dir, database_type, db_schema_name, table_name, import_only_lines):
+@click.option('--trample', is_flag=True, default=False,
+                help='Trample existing data in the table')
+def invoke_compiled_script(run_import_from, import_data_from_dir, database_type, db_schema_name, table_name, import_only_lines, trample):
     """
     Execute compiled import scripts with automatic file discovery.
     
@@ -214,7 +216,8 @@ def invoke_compiled_script(run_import_from, import_data_from_dir, database_type,
             database_type=database_type,
             db_schema_name=db_schema_name,
             table_name=table_name,
-            import_only_lines=import_only_lines
+            import_only_lines=import_only_lines,
+            trample=trample
         )
         
     except CSViperError as e:

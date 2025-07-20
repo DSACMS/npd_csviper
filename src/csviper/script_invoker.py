@@ -20,7 +20,8 @@ class CompiledScriptInvoker:
     def invoke_from_directory(run_import_from: str, import_data_from_dir: str, 
                             database_type: str, db_schema_name: Optional[str] = None,
                             table_name: Optional[str] = None,
-                            import_only_lines: Optional[int] = None) -> None:
+                            import_only_lines: Optional[int] = None,
+                            trample: bool = False) -> None:
         """
         Main entry point for directory-based import invocation.
         
@@ -61,7 +62,7 @@ class CompiledScriptInvoker:
             # 4. Execute the import script
             CompiledScriptInvoker._execute_import_script(
                 run_import_from, latest_file, database_type, db_schema_name, table_name,
-                import_only_lines
+                import_only_lines, trample
             )
             
         except Exception as e:
@@ -221,7 +222,8 @@ class CompiledScriptInvoker:
     def _execute_import_script(script_dir: str, csv_file: str, db_type: str, 
                              db_schema_name: Optional[str] = None, 
                              table_name: Optional[str] = None,
-                             import_only_lines: Optional[int] = None) -> None:
+                             import_only_lines: Optional[int] = None,
+                             trample: bool = False) -> None:
         """
         Execute go.mysql.py or go.postgresql.py with the CSV file.
         
@@ -265,6 +267,9 @@ class CompiledScriptInvoker:
 
         if import_only_lines:
             cmd.append(f"--import_only_lines={import_only_lines}")
+        
+        if trample:
+            cmd.append("--trample")
         
         print(f"\nExecuting import script:")
         print(f"  Command: {' '.join(cmd)}")
