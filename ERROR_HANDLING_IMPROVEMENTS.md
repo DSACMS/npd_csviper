@@ -1,12 +1,12 @@
-# CSViper Error Handling Improvements
+# npd_csviper Error Handling Improvements
 
 ## Overview
 
-This document outlines the comprehensive improvements made to CSViper's error handling system to provide more detailed and actionable error information instead of vague error messages.
+This document outlines the comprehensive improvements made to npd_csviper's error handling system to provide more detailed and actionable error information instead of vague error messages.
 
 ## Problem Addressed
 
-The original issue was that CSViper was producing vague error messages like:
+The original issue was that npd_csviper was producing vague error messages like:
 ```
 Error: too many values to unpack (expected 4)
 ```
@@ -21,7 +21,7 @@ This error provided no context about:
 
 ### 1. New Exception Classes
 
-Added comprehensive exception classes in `src/csviper/exceptions.py`:
+Added comprehensive exception classes in `src/npd_csviper/exceptions.py`:
 
 - **ImportExecutionError**: For errors during import script execution
 - **ConfigurationError**: For configuration and environment setup issues
@@ -95,10 +95,10 @@ Original Error: ValueError: Column 1 mismatch: Expected 'Name', got 'Full Name'
 
 ## Files Modified
 
-1. **src/csviper/exceptions.py**: Added new exception classes
-2. **src/csviper/postgresql_import_script_generator.py**: Fixed unpacking and added error handling
-3. **src/csviper/mysql_import_script_generator.py**: Fixed unpacking and added error handling
-4. **src/csviper/import_executor.py**: Enhanced database connection error handling
+1. **src/npd_csviper/exceptions.py**: Added new exception classes
+2. **src/npd_csviper/postgresql_import_script_generator.py**: Fixed unpacking and added error handling
+3. **src/npd_csviper/mysql_import_script_generator.py**: Fixed unpacking and added error handling
+4. **src/npd_csviper/import_executor.py**: Enhanced database connection error handling
 
 ## Regenerated Scripts
 
@@ -121,12 +121,12 @@ All existing import scripts need to be regenerated to benefit from these improve
 The improved error handling is automatically included in all newly generated import scripts. Existing scripts should be regenerated using:
 
 ```python
-from csviper.postgresql_import_script_generator import PostgreSQLImportScriptGenerator
+from npd_csviper.postgresql_import_script_generator import PostgreSQLImportScriptGenerator
 PostgreSQLImportScriptGenerator.fromResourceDirToScript('.', '.', overwrite_previous=True)
 ```
 
 Or for MySQL:
 
 ```python
-from csviper.mysql_import_script_generator import MySQLImportScriptGenerator
+from npd_csviper.mysql_import_script_generator import MySQLImportScriptGenerator
 MySQLImportScriptGenerator.fromResourceDirToScript('.', '.', overwrite_previous=True)

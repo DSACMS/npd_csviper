@@ -1,6 +1,6 @@
 # COMMUNITY.md
 
-CSViper is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with government standards and agency goals.
+npd_csviper is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with government standards and agency goals.
 
 ## Project Members
 
@@ -11,4 +11,3 @@ Roles to include, but not limited to: Project Owner, Technical Lead, Developers/
 | Role   | Name    | Affiliation    |
 | :----- | :------ | :------------- |
 | Developer | Fred Trotter | @DSACMS |
-

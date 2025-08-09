@@ -53,7 +53,7 @@ exclude_lines = [
 name = "npd_csviper"
 version = "0.1.0"
 authors = [
-  { name="CSViper Team", email="fred.trotter@gmail.com" },
+  { name="npd_csviper Team", email="fred.trotter@gmail.com" },
 ]
 description = "A CLI tool for analyzing CSV files and generating SQL import scripts"
 readme = "ReadMe.md"

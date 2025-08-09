@@ -1,6 +1,6 @@
-# CSViper
+# npd_csviper
 
-CSViper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. 
+npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. 
 It is designed to allow AI tools to reliably accomplish this task without incurring substantial data pipeline debt. 
 
 This is *not* a project that imports CSV files. It is a project that generates programs which import CSV files. 
@@ -56,8 +56,8 @@ It supports PostgreSQL, with intentions to support MySQL eventually, and is desi
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/ftrotter/csviper.git
-cd csviper
+git clone https://github.com/ftrotter/npd_csviper.git
+cd npd_csviper
 ```
 
 2. Create and activate a virtual environment:
@@ -82,19 +82,19 @@ pip install -e .
 ### From PyPI (Coming Soon)
 
 ```bash
-pip install csviper
+pip install npd_csviper
 ```
 
 ## Usage
 
-CSViper operates in four phases that can be run together or separately:
+npd_csviper operates in four phases that can be run together or separately:
 
 ### Phase 1: Extract Metadata
 
 Analyze a CSV file and extract column information:
 
 ```bash
-python -m csviper extract_metadata --from_csv=data.csv --output_dir=./output/
+python -m npd_csviper extract_metadata --from_csv=data.csv --output_dir=./output/
 ```
 
 Options:
@@ -108,7 +108,7 @@ Options:
 Generate CREATE TABLE and data import SQL scripts:
 
 ```bash
-python -m csviper build_sql --from_metadata_json=output/data.metadata.json --output_dir=./output/
+python -m npd_csviper build_sql --from_metadata_json=output/data.metadata.json --output_dir=./output/
 ```
 
 ### Phase 3: Generate Import Script
@@ -116,7 +116,7 @@ python -m csviper build_sql --from_metadata_json=output/data.metadata.json --out
 Create a standalone Python script for data import:
 
 ```bash
-python -m csviper build_import_script --from_resource_dir=./output/ --output_dir=./output/
+python -m npd_csviper build_import_script --from_resource_dir=./output/ --output_dir=./output/
 ```
 
 ### Phase 4: Invoke Compiled Scripts (New!)
@@ -124,19 +124,19 @@ python -m csviper build_import_script --from_resource_dir=./output/ --output_dir
 Execute compiled import scripts with automatic file discovery:
 
 ```bash
-python -m csviper invoke-compiled-script --run_import_from=./output/ --import_data_from_dir=./data_directory/ --database_type=postgresql
+python -m npd_csviper invoke-compiled-script --run_import_from=./output/ --import_data_from_dir=./data_directory/ --database_type=postgresql
 ```
 
 Options:
 
-- `--run_import_from`: Directory containing compiled CSViper scripts and metadata (required)
+- `--run_import_from`: Directory containing compiled npd_csviper scripts and metadata (required)
 - `--import_data_from_dir`: Directory to search for data files (required)
 - `--database_type`: Database type - either 'mysql' or 'postgresql' (required)
 
 ### Running All Phases Together
 
 ```bash
-python -m csviper full_compile --from_csv=data.csv --output_dir=./output/ --overwrite_previous
+python -m npd_csviper full_compile --from_csv=data.csv --output_dir=./output/ --overwrite_previous
 ```
 
 ## Development Setup
@@ -184,8 +184,8 @@ flake8 src/
 ## Project Structure
 
 ```tree
-csviper/
-├── src/csviper/
+npd_csviper/
+├── src/npd_csviper/
 │   ├── __init__.py              # Package initialization
 │   ├── __main__.py              # CLI entry point
 │   ├── column_normalizer.py     # Column name normalization utilities
@@ -202,7 +202,7 @@ csviper/
 
 ## Output Files
 
-CSViper generates several files during processing:
+npd_csviper generates several files during processing:
 
 ### Phase 1 Output
 
@@ -227,7 +227,7 @@ CSViper generates several files during processing:
 Run all phases at once:
 
 ```bash
-python -m csviper full_compile --from_csv=sales_data.csv --output_dir=./sales_data/
+python -m npd_csviper full_compile --from_csv=sales_data.csv --output_dir=./sales_data/
 ```
 
 ### Option 2: Step-by-Step Process
@@ -235,7 +235,7 @@ python -m csviper full_compile --from_csv=sales_data.csv --output_dir=./sales_da
 1. **Analyze your CSV file**:
 
 ```bash
-python -m csviper extract_metadata --from_csv=sales_data.csv
+python -m npd_csviper extract_metadata --from_csv=sales_data.csv
 ```
 
 2. **Review the generated metadata** in `sales_data/sales_data.metadata.json`
@@ -243,28 +243,28 @@ python -m csviper extract_metadata --from_csv=sales_data.csv
 3. **Generate SQL scripts**:
 
 ```bash
-python -m csviper build_sql --from_metadata_json=sales_data/sales_data.metadata.json
+python -m npd_csviper build_sql --from_metadata_json=sales_data/sales_data.metadata.json
 ```
 
 4. **Create import scripts**:
 
 ```bash
-python -m csviper build_import_script --from_resource_dir=sales_data/
+python -m npd_csviper build_import_script --from_resource_dir=sales_data/
 ```
 
 5. **Use the invoker system to import data**:
 
 ```bash
-python -m csviper invoke-compiled-script --run_import_from=./sales_data/ --import_data_from_dir=./data/ --database_type=postgresql
+python -m npd_csviper invoke-compiled-script --run_import_from=./sales_data/ --import_data_from_dir=./data/ --database_type=postgresql
 ```
 
 ## The Invoker System
 
-The invoker system is CSViper's intelligent file discovery and execution engine. It automatically finds the most recent data file matching your original CSV pattern and executes the appropriate import script.
+The invoker system is npd_csviper's intelligent file discovery and execution engine. It automatically finds the most recent data file matching your original CSV pattern and executes the appropriate import script.
 
 ### How It Works
 
-1. **File Pattern Matching**: CSViper stores a glob pattern in the metadata file (e.g., `sales_data_*.csv`) that matches files with similar naming conventions
+1. **File Pattern Matching**: npd_csviper stores a glob pattern in the metadata file (e.g., `sales_data_*.csv`) that matches files with similar naming conventions
 2. **Automatic Discovery**: The invoker searches your data directory for files matching this pattern
 3. **Latest File Selection**: It automatically selects the most recently modified file
 4. **User Confirmation**: Shows you the selected file and asks for confirmation before proceeding
@@ -295,7 +295,7 @@ sales_data/
 Running the invoker:
 
 ```bash
-python -m csviper invoke-compiled-script --run_import_from=./sales_data/ --import_data_from_dir=./data/ --database_type=postgresql
+python -m npd_csviper invoke-compiled-script --run_import_from=./sales_data/ --import_data_from_dir=./data/ --database_type=postgresql
 ```
 
 Will automatically:
@@ -341,4 +341,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-For questions, issues, or contributions, please visit the [GitHub repository](https://github.com/ftrotter/csviper).
+For questions, issues, or contributions, please visit the [GitHub repository](https://github.com/ftrotter/npd_csviper).

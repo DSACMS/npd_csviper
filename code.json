@@ -1,6 +1,6 @@
 {
-  "name": "CSViper",
-  "description": "CSViper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. It supports both MySQL and PostgreSQL backends and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.",
+  "name": "npd_csviper",
+  "description": "npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. It supports both MySQL and PostgreSQL backends and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.",
   "permissions": {
     "licenses": [
       {

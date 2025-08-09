@@ -1,13 +1,13 @@
-# CSViper Invoker Command Design
+# npd_csviper Invoker Command Design
 
 ## Overview
 
-The `invoke_compiled_script` command is designed to handle dynamic file selection and execution of compiled CSViper import scripts. This command addresses the common scenario where data files change names over time (e.g., with date stamps) and users need to automatically find and process the latest version.
+The `invoke_compiled_script` command is designed to handle dynamic file selection and execution of compiled npd_csviper import scripts. This command addresses the common scenario where data files change names over time (e.g., with date stamps) and users need to automatically find and process the latest version.
 
 ## Command Structure
 
 ```bash
-python -m csviper invoke_compiled_script \
+python -m npd_csviper invoke_compiled_script \
     --run_import_from=<importer_directory> \
     --import_data_from_dir=<data_search_directory> \
     --database_type=<mysql|postgresql>
@@ -15,7 +15,7 @@ python -m csviper invoke_compiled_script \
 
 ### Parameters
 
-- `--run_import_from`: Directory containing the compiled CSViper scripts and metadata
+- `--run_import_from`: Directory containing the compiled npd_csviper scripts and metadata
 - `--import_data_from_dir`: Directory to search for data files (searches recursively)
 - `--database_type`: Database type (mysql or postgresql) to determine which script to execute
 
@@ -66,7 +66,7 @@ The metadata.json file will be extended to include file discovery information:
 
 ## Implementation Architecture
 
-### 1. New Module: `src/csviper/script_invoker.py`
+### 1. New Module: `src/npd_csviper/script_invoker.py`
 
 ```python
 class CompiledScriptInvoker:
@@ -99,7 +99,7 @@ Add new command to the existing CLI structure:
 ```python
 @cli.command()
 @click.option('--run_import_from', required=True, type=click.Path(exists=True),
-              help='Directory containing compiled CSViper scripts and metadata')
+              help='Directory containing compiled npd_csviper scripts and metadata')
 @click.option('--import_data_from_dir', required=True, type=click.Path(exists=True),
               help='Directory to search for data files')
 @click.option('--database_type', required=True, type=click.Choice(['mysql', 'postgresql']),
@@ -161,7 +161,7 @@ def _generate_file_glob_pattern(filename: str) -> str:
 
 ### NPPES Main Data Import
 ```bash
-python -m csviper invoke_compiled_script \
+python -m npd_csviper invoke_compiled_script \
     --run_import_from=./nppes_main \
     --import_data_from_dir=/data/cms/nppes \
     --database_type=postgresql
@@ -169,7 +169,7 @@ python -m csviper invoke_compiled_script \
 
 ### PECOS Enrollment Import
 ```bash
-python -m csviper invoke_compiled_script \
+python -m npd_csviper invoke_compiled_script \
     --run_import_from=./pecos_enrollment \
     --import_data_from_dir=/data/cms/pecos \
     --database_type=mysql
@@ -178,7 +178,7 @@ python -m csviper invoke_compiled_script \
 ## Expected User Experience
 
 ```bash
-$ python -m csviper invoke_compiled_script --run_import_from=./nppes_main --import_data_from_dir=/data/downloads --database_type=postgresql
+$ python -m npd_csviper invoke_compiled_script --run_import_from=./nppes_main --import_data_from_dir=/data/downloads --database_type=postgresql
 
 Loading metadata from: ./nppes_main/npidata_pfile_20050523-20250608.metadata.json
 Searching for files matching 'npidata_pfile_*.csv' in /data/downloads...

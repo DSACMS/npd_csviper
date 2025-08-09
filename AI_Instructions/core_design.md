@@ -1,8 +1,8 @@
-# CSViper Specification
+# npd_csviper Specification
 
 ## Purpose
 
-The `CSViper` system automates the process of analyzing a CSV file and generating SQL scripts and a runnable Python program to load the data into a relational database. It supports multiple backends (MySQL and PostgreSQL) and assumes that the database is hosted remotely, while the CSV file resides on the local machine.
+The `npd_csviper` system automates the process of analyzing a CSV file and generating SQL scripts and a runnable Python program to load the data into a relational database. It supports multiple backends (MySQL and PostgreSQL) and assumes that the database is hosted remotely, while the CSV file resides on the local machine.
 
 ## Structure
 
@@ -26,20 +26,20 @@ The code should have `#!/usr/bin/env python3` as its first line for eventual use
 For now, the code will be run using:
 
 ```bash
-> python3 csviper full_compile --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
+> python3 npd_csviper full_compile --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
 ```
 
 That code will run all three of the build steps. However, each stage should also be runnable seperately using the following commands:
 
 ```bash
-> python3 csviper extract_metadata --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
-> python3 csviper build_sql --from_metadata_json={schema_metadata.json} --output_dir={./your_output_dir/} --overwrite_previous=1
-> python3 csviper build_import_script --from_resource_dir={output_dir_from_previous_stages} --output_dir={./your_output_dir/} --overwrite_previous=1
+> python3 npd_csviper extract_metadata --from_csv={csv_file_name.csv} --output_dir={./your_output_dir/} --overwrite_previous=1
+> python3 npd_csviper build_sql --from_metadata_json={schema_metadata.json} --output_dir={./your_output_dir/} --overwrite_previous=1
+> python3 npd_csviper build_import_script --from_resource_dir={output_dir_from_previous_stages} --output_dir={./your_output_dir/} --overwrite_previous=1
 ```
 
 ## Phase 1: CSV Metadata Analysis (Shared)
 
-### Package Name: csviper
+### Package Name: npd_csviper
 
 ### Class: `CSVMetadataExtractor`
 
