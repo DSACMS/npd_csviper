@@ -11,9 +11,11 @@ import re
 from typing import Dict, Any, List, Optional
 import click
 from .column_normalizer import ColumnNormalizer
+from .csv_linter import CSVLinter
 from .exceptions import (
     CSVFileError, CSVParsingError, CSVEncodingError, 
-    CSVValidationError, MetadataError, FileSystemError
+    CSVValidationError, MetadataError, FileSystemError,
+    CSVLinterNotFound, CSVLintError
 )
 
 
@@ -92,7 +94,7 @@ class CSVMetadataExtractor:
         return filename
     
     @staticmethod
-    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: Optional[str] = None, overwrite_previous: bool = False) -> Dict[str, Any]:
+    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: Optional[str] = None, overwrite_previous: bool = False, no_csv_lint: bool = False) -> Dict[str, Any]:
         """
         Extract metadata from a CSV file and optionally save to JSON with hash-based caching.
         
@@ -100,6 +102,7 @@ class CSVMetadataExtractor:
             full_path_to_csv_file (str): Absolute path to the local CSV file
             output_dir (Optional[str], optional): Directory to save metadata JSON file
             overwrite_previous (bool): Whether to overwrite existing cached metadata. Corresponds to --trample.
+            no_csv_lint (bool): Whether to skip the csvlint step.
             
         Returns:
             Dict[str, Any]: Metadata dictionary containing file info, columns, and analysis
@@ -110,6 +113,14 @@ class CSVMetadataExtractor:
             MetadataError: If overwrite is prevented by the metadata file itself.
         """
         # File validation
+        if not no_csv_lint:
+            try:
+                CSVLinter.lint_csv_file(csv_file_path=full_path_to_csv_file)
+                print("CSV linting passed.")
+            except (CSVLinterNotFound, CSVLintError) as e:
+                # Re-raise as a specific CSViper error for consistent handling
+                raise CSVValidationError(str(e), full_path_to_csv_file) from e
+
         if not os.path.isfile(full_path_to_csv_file):
             raise CSVFileError(f"CSV file not found: {full_path_to_csv_file}", full_path_to_csv_file)
         

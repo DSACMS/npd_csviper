@@ -277,16 +277,30 @@ class CompiledScriptInvoker:
         print()
         
         try:
+            # Add the src directory to the python path
+            env = os.environ.copy()
+            src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            if 'PYTHONPATH' in env:
+                env['PYTHONPATH'] = f"{src_path}:{env['PYTHONPATH']}"
+            else:
+                env['PYTHONPATH'] = src_path
+
             # Execute the script
             result = subprocess.run(
                 cmd,
                 cwd=script_dir,
-                capture_output=False,  # Let output go to console
-                text=True
+                capture_output=True,
+                text=True,
+                env=env
             )
             
             if result.returncode != 0:
-                raise CSViperError(f"Import script failed with exit code {result.returncode}")
+                error_message = f"Import script failed with exit code {result.returncode}\n"
+                if result.stdout:
+                    error_message += f"STDOUT:\n{result.stdout}\n"
+                if result.stderr:
+                    error_message += f"STDERR:\n{result.stderr}\n"
+                raise CSViperError(error_message)
             
             print(f"\n✓ Import script completed successfully")
             

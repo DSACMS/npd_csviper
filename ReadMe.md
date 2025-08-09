@@ -45,6 +45,12 @@ It supports PostgreSQL, with intentions to support MySQL eventually, and is desi
 
 ## Installation
 
+### Prerequisites
+
+- Python 3.8 or higher
+- `csvlint` command-line tool. See [Installation Instructions](https://github.com/Data-Liberation-Front/csvlint.rb).
+  - On macOS with Homebrew: `brew install ruby && gem install bundler csvlint`
+
 ### From Source (Development)
 
 1. Clone the repository:
@@ -139,6 +145,8 @@ python -m csviper full_compile --from_csv=data.csv --output_dir=./output/ --over
 
 - Python 3.8 or higher
 - Virtual environment (recommended)
+- `csvlint` command-line tool. See [Installation Instructions](https://github.com/Data-Liberation-Front/csvlint.rb).
+  - On macOS with Homebrew: `brew install ruby && gem install bundler csvlint`
 
 ### Setting up the Development Environment
 

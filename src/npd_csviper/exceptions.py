@@ -138,3 +138,15 @@ class DatabaseConnectionError(CSViperError):
             if safe_details:
                 base_msg = f"{base_msg}\nConnection Details: {safe_details}"
         return base_msg
+
+
+class CSVLinterNotFound(CSViperError):
+    """Error raised when the csvlint executable is not found."""
+    def __init__(self, message: str):
+        super().__init__(message, "CSV Linter Not Found")
+
+
+class CSVLintError(CSViperError):
+    """Error raised when csvlint finds an error in the CSV file."""
+    def __init__(self, message: str):
+        super().__init__(message, "CSV Lint Error")

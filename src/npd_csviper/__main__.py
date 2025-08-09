@@ -30,7 +30,9 @@ def cli():
               help='Output directory (defaults to CSV filename without extension)')
 @click.option('--overwrite_previous', is_flag=True, default=False,
               help='Overwrite existing output files')
-def extract_metadata(from_csv, output_dir, overwrite_previous):
+@click.option('--no-csv-lint', is_flag=True, default=False,
+                help='Skip the csvlint check')
+def extract_metadata(from_csv, output_dir, overwrite_previous, no_csv_lint):
     """
     Extract metadata from a CSV file.
     
@@ -53,7 +55,7 @@ def extract_metadata(from_csv, output_dir, overwrite_previous):
         click.echo(f"Output directory: {output_dir}")
         
         # Extract metadata
-        metadata = CSVMetadataExtractor.fromFileToMetadata(csv_path, output_dir, overwrite_previous)
+        metadata = CSVMetadataExtractor.fromFileToMetadata(csv_path, output_dir, overwrite_previous, no_csv_lint)
         
         click.echo(f"✓ Successfully extracted metadata for {metadata['total_columns']} columns")
         click.echo(f"✓ File size: {metadata['file_size_bytes']:,} bytes")
@@ -61,10 +63,14 @@ def extract_metadata(from_csv, output_dir, overwrite_previous):
         click.echo(f"✓ Quote character: '{metadata['quote_character']}'")
         
     except CSViperError as e:
+        click.echo(f"{e}")
         click.echo(f"{e}", err=True)
+        click.echo("Will not continue.", err=True)
         sys.exit(1)
     except Exception as e:
+        click.echo(f"Unexpected Error: {e}")
         click.echo(f"Unexpected Error: {e}", err=True)
+        click.echo("Will not continue.", err=True)
         sys.exit(1)
 
 
@@ -235,8 +241,10 @@ def invoke_compiled_script(run_import_from, import_data_from_dir, database_type,
               help='Output directory (defaults to CSV filename without extension)')
 @click.option('--overwrite_previous', is_flag=True, default=False,
               help='Overwrite existing output files')
+@click.option('--no-csv-lint', is_flag=True, default=False,
+                help='Skip the csvlint check')
 @click.pass_context
-def full_compile(ctx, from_csv, output_dir, overwrite_previous):
+def full_compile(ctx, from_csv, output_dir, overwrite_previous, no_csv_lint):
     """
     Run all compilation stages in sequence.
     
@@ -270,10 +278,11 @@ def full_compile(ctx, from_csv, output_dir, overwrite_previous):
         # Stage 1: Extract metadata
         click.echo("STAGE 1: Extracting metadata from CSV file")
         click.echo("-" * 40)
-        ctx.invoke(extract_metadata, 
-                  from_csv=from_csv, 
-                  output_dir=output_dir, 
-                  overwrite_previous=overwrite_previous)
+        ctx.invoke(extract_metadata,
+                   from_csv=from_csv,
+                   output_dir=output_dir,
+                   overwrite_previous=overwrite_previous,
+                   no_csv_lint=no_csv_lint)
         
         # Stage 2: Generate SQL scripts
         click.echo(f"\nSTAGE 2: Generating SQL scripts from metadata")
