@@ -1,5 +1,5 @@
 """
-Base Import Script Generator for CSViper
+Base Import Script Generator for npd_CSViper
 Contains shared functionality between database-specific import script generators.
 """
 
