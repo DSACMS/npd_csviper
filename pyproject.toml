@@ -35,7 +35,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 
 [tool.coverage.run]
-source = ["src/csviper"]
+source = ["src/npd_csviper"]
 omit = ["tests/*", "*/migrations/*", "*/settings/*"]
 
 [tool.coverage.report]
@@ -50,7 +50,7 @@ exclude_lines = [
 
 
 [project]
-name = "csviper"
+name = "npd_csviper"
 version = "0.1.0"
 authors = [
   { name="CSViper Team", email="fred.trotter@gmail.com" },
@@ -100,8 +100,8 @@ full = [
 ]
 
 [project.scripts]
-csviper = "csviper.__main__:cli"
+npd_csviper = "npd_csviper.__main__:cli"
 
 [project.urls]
-Homepage = "https://github.com/ftrotter/csviper"
-Issues = "https://github.com/ftrotter/csviper/issues"
+Homepage = "https://github.com/DSACMS/npd_csviper"
+Issues = "https://github.com/DSACMS/npd_csviper/issues"
