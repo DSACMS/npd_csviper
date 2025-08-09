@@ -13,4 +13,3 @@ Whic will make the metadata.json file the authoritative place which will determi
 However, if trample is set and the overwrite is prevented by this variable. Then the compiler should generate an error saying "You are asking me to trample but the metadata file is saying no". 
 
 The csv metadata is a complex process.. but start looking in src/csviper/metadata_extractor.py for where to make these modifcations. 
-
