@@ -1,12 +1,42 @@
 # CSViper
 
-CSViper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. It supports both MySQL and PostgreSQL backends and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.
+CSViper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. 
+It is designed to allow AI tools to reliably accomplish this task without incurring substantial data pipeline debt. 
+
+This is *not* a project that imports CSV files. It is a project that generates programs which import CSV files. 
+
+## Approach and Purpose
+
+Importing CSV files is a simple chore initially, but maintaining CSV imports over time is much more difficult. 
+As CSV files envitably change, simple scripts continue to function, despite underlying data changes that should be accounted for.
+This project is designed to enable AI code-gen tools to successfully create CSV data imports, data expectations, documentation and post-processing in a manner convenient for human validation.
+
+When a CSV file is imported into the database, without attention to how the underlying data might have changed, this introduces a pernicous form of technical debt
+alled Data Pipeline Debt, which was a term coined by the 
+[2018 version of an article](https://web.archive.org/web/20201027032456/https://greatexpectations.io/blog/down-with-pipeline-debt-introducing-great-expectations/) from the [Great Expectations](https://greatexpectations.io/) project. (The [later edition of the same article](https://greatexpectations.io/blog/down-with-pipeline-debt-introducing-great-expectations/) is worth reading too, but the first version articulates the problem more concisely).
+An interesting tidbit is that the Great Expectations project was founded by a team of Health IT developers, who were experiencing the same unreasonable data environment that we have here at CMS. 
+
+A proper CSV import process does not create Data Pipeline Debt by: 
+
+* For all features, tries to Fail safely. Rather than importing data that might be a problem or that does not pass expectations, the code will fail in a way that forces users to pay attention when a given CSV file changes underneath them. 
+* Ensuring that data expectation tests are always designed and run alongside the data import and that those expectation tests: 
+* Ensure that column lengths are not changing. This requires that columns are given +1 the data size they need to see if the underlying data ever fills the last character (it should not)
+* Addresses character set inconsistencies up-front
+* Seperates the parameters for data import from the execution of that data import so the import parameters can be modifies as a seperate code-based
+* Allows for AI tools to auto-generation of import code, based on CSV contents, but subsequent code generation should not trample any person-tweaked code.
+* Supports importing to remote databases
+* Auto-creates database safe column names and maintains the mapping between the database safe column names and the database names.
+* Fails safely if the column names change.
+* Fails safely if the column names are added.
+* Provides support for post-processing scripts and raw-sql
+
+
+It supports PostgreSQL, with intentions to support MySQL eventually, and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.
 
 ## Features
 
 - **CSV Analysis**: Automatically detects CSV format (delimiter, quote character) and analyzes column structure
 - **Column Normalization**: Converts column names to SQL-safe identifiers with intelligent duplicate handling
-- **Multi-Database Support**: Generates scripts for both MySQL and PostgreSQL
 - **Modular Design**: Four-phase approach allows for flexible workflow management
 - **Standalone Scripts**: Generates self-contained Python import scripts for easy deployment
 - **Intelligent File Discovery**: Invoker system automatically finds and processes the latest matching data files
