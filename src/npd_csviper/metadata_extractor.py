@@ -405,17 +405,28 @@ class CSVMetadataExtractor:
                 print(f"DEBUG: CSV format detection completed successfully")
                 return dialect.delimiter, dialect.quotechar
                 
-        except UnicodeDecodeError as e:
-            raise CSVEncodingError(
-                f"Unable to read CSV file with detected encoding '{encoding}' during step '{current_step}': {e}. "
-                f"The file may be corrupted or use a different encoding. "
-                f"Try converting the file to UTF-8 encoding.",
-                file_path,
-                encoding
-            )
-        except StopIteration:
-            raise CSVParsingError(f"CSV file does not contain sufficient data (error during '{current_step}')", file_path)
-        except (csv.Error, Exception) as e:
+        except (UnicodeDecodeError, StopIteration, csv.Error, Exception) as e:
+            # Initial detection failed, so try common fallback delimiters
+            print(f"Initial CSV format detection failed (step: {current_step}, error: {e}). Attempting fallback delimiters.")
+            
+            fallback_delimiters = [',', '\t', ';']
+            for delimiter in fallback_delimiters:
+                try:
+                    with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
+                        # Use a standard quote character for fallbacks
+                        reader = csv.reader(csvfile, delimiter=delimiter, quotechar='"')
+                        header = next(reader)
+                        first_row = next(reader, None)
+                        
+                        # Basic validation: header and first row must exist, and header should have more than one column
+                        if header and len(header) > 1 and first_row:
+                            print(f"Successfully parsed with fallback delimiter: '{delimiter}'")
+                            return delimiter, '"'  # Return the successful fallback delimiter and default quote char
+                except (csv.Error, StopIteration, UnicodeDecodeError):
+                    # This fallback didn't work, try the next one
+                    continue
+            
+            # If we get here, all fallbacks also failed. Raise a comprehensive error.
             dialect_info = "Dialect not yet sniffed."
             if 'dialect' in locals():
                 delimiter_repr = repr(dialect.delimiter)
@@ -430,18 +441,16 @@ class CSVMetadataExtractor:
             error_type = "CSV parsing error" if isinstance(e, csv.Error) else "Unexpected error"
             
             suggestion = (
-                "This error often occurs when the CSV sniffer misinterprets the file's structure. "
-                "Based on the sniffed dialect above, the program tried to use the specified delimiter and quote character, but failed.\n\n"
+                "The CSV sniffer failed to automatically detect the file's structure, and fallback attempts with common delimiters (comma, tab, semicolon) also failed.\n\n"
                 "Next Steps:\n"
-                "1. Manually inspect your CSV file to confirm the actual delimiter (e.g., comma, tab, pipe).\n"
-                "2. Check for inconsistencies in the file, such as unescaped quotes or lines with a different number of columns.\n"
-                "3. If the sniffer is wrong, you may need to convert your file to a more standard CSV format (e.g., comma-separated with double-quotes for text). "
-                "There is currently no command-line option to force a specific delimiter."
+                "1. Manually inspect your CSV file to confirm the actual delimiter and that it is used consistently.\n"
+                "2. Check for file corruption, inconsistencies in quoting, or incorrect encoding.\n"
+                "3. Convert your file to a standard UTF-8 CSV format (e.g., comma-separated with double-quotes for text)."
             )
 
             raise CSVParsingError(
                 f"{error_type} during step '{current_step}' while detecting CSV format: {e}\n\n"
-                f"{dialect_info}\n\n"
+                f"Initial attempt failed with: {dialect_info}\n\n"
                 f"{suggestion}",
                 file_path
             )
