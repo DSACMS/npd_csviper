@@ -374,19 +374,26 @@ class CSVMetadataExtractor:
         # Get the best encoding for this file
         encoding = CSVMetadataExtractor._get_best_encoding(file_path)
         
+        current_step = "opening file"
         try:
             with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
-                # Read a sample of the file for sniffing
+                current_step = "reading sample for sniffing"
                 sample = csvfile.read(8192)
                 csvfile.seek(0)
                 
                 # Use csv.Sniffer to detect format
+                current_step = "sniffing CSV dialect"
                 sniffer = csv.Sniffer()
                 dialect = sniffer.sniff(sample)
                 
                 # Verify the dialect works by trying to read the first few lines
+                current_step = "creating CSV reader"
                 reader = csv.reader(csvfile, dialect)
+
+                current_step = "reading header row"
                 header = next(reader)
+
+                current_step = "reading first data row"
                 first_row = next(reader, None)
                 
                 if not header:
@@ -400,18 +407,44 @@ class CSVMetadataExtractor:
                 
         except UnicodeDecodeError as e:
             raise CSVEncodingError(
-                f"Unable to read CSV file with detected encoding '{encoding}': {e}. "
+                f"Unable to read CSV file with detected encoding '{encoding}' during step '{current_step}': {e}. "
                 f"The file may be corrupted or use a different encoding. "
                 f"Try converting the file to UTF-8 encoding.",
                 file_path,
                 encoding
             )
-        except csv.Error as e:
-            raise CSVParsingError(f"CSV parsing error: {e}", file_path)
         except StopIteration:
-            raise CSVParsingError("CSV file does not contain sufficient data", file_path)
-        except Exception as e:
-            raise CSVParsingError(f"Unexpected error while detecting CSV format: {e}", file_path)
+            raise CSVParsingError(f"CSV file does not contain sufficient data (error during '{current_step}')", file_path)
+        except (csv.Error, Exception) as e:
+            dialect_info = "Dialect not yet sniffed."
+            if 'dialect' in locals():
+                delimiter_repr = repr(dialect.delimiter)
+                quote_char_repr = repr(dialect.quotechar)
+                dialect_info = (
+                    f"Sniffed Dialect -- Delimiter: {delimiter_repr}, "
+                    f"Quote Char: {quote_char_repr}, "
+                    f"Double Quote: {dialect.doublequote}, "
+                    f"Skip Initial Space: {dialect.skipinitialspace}"
+                )
+
+            error_type = "CSV parsing error" if isinstance(e, csv.Error) else "Unexpected error"
+            
+            suggestion = (
+                "This error often occurs when the CSV sniffer misinterprets the file's structure. "
+                "Based on the sniffed dialect above, the program tried to use the specified delimiter and quote character, but failed.\n\n"
+                "Next Steps:\n"
+                "1. Manually inspect your CSV file to confirm the actual delimiter (e.g., comma, tab, pipe).\n"
+                "2. Check for inconsistencies in the file, such as unescaped quotes or lines with a different number of columns.\n"
+                "3. If the sniffer is wrong, you may need to convert your file to a more standard CSV format (e.g., comma-separated with double-quotes for text). "
+                "There is currently no command-line option to force a specific delimiter."
+            )
+
+            raise CSVParsingError(
+                f"{error_type} during step '{current_step}' while detecting CSV format: {e}\n\n"
+                f"{dialect_info}\n\n"
+                f"{suggestion}",
+                file_path
+            )
     
     @staticmethod
     def _extract_column_names(file_path: str, delimiter: str, quote_char: str) -> tuple:
@@ -482,6 +515,7 @@ class CSVMetadataExtractor:
         encoding = CSVMetadataExtractor._get_best_encoding(file_path)
         print(f"DEBUG: Using encoding {encoding} for column width analysis")
         
+        row_number = 1
         try:
             print(f"DEBUG: Opening file for column width analysis...")
             with open(file_path, 'r', newline='', encoding=encoding) as csvfile:
@@ -492,7 +526,6 @@ class CSVMetadataExtractor:
                 next(reader)
                 
                 print(f"DEBUG: Starting to process data rows...")
-                row_number = 1
                 for row in reader:
                     row_number += 1
                     
@@ -518,11 +551,11 @@ class CSVMetadataExtractor:
         
         except UnicodeDecodeError as e:
             raise CSVEncodingError(
-                f"Unable to analyze column widths with encoding '{encoding}': {e}",
+                f"Unable to analyze column widths with encoding '{encoding}' at row {row_number}: {e}",
                 file_path
             )
         except Exception as e:
-            raise CSVValidationError(f"Error analyzing column widths: {e}", file_path)
+            raise CSVValidationError(f"Error analyzing column widths at row {row_number}: {e}", file_path, row_number)
         
         return max_lengths
     
