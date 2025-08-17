@@ -1,9 +1,9 @@
 # npd_csviper
 
-npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. 
+npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into PostgreSQL databases. 
 It is designed to allow AI tools to reliably accomplish this task without incurring substantial data pipeline debt. 
 
-This is *not* a project that imports CSV files. It is a project that generates programs which import CSV files. 
+This is *not* a project that imports CSV files. It is a project that generates programs which import CSV files.
 
 ## Approach and Purpose
 
@@ -31,7 +31,7 @@ A proper CSV import process does not create Data Pipeline Debt by:
 * Provides support for post-processing scripts and raw-sql
 
 
-It supports PostgreSQL, with intentions to support MySQL eventually, and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.
+It supports PostgreSQL and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.
 
 ## Features
 
@@ -131,7 +131,7 @@ Options:
 
 - `--run_import_from`: Directory containing compiled npd_csviper scripts and metadata (required)
 - `--import_data_from_dir`: Directory to search for data files (required)
-- `--database_type`: Database type - either 'mysql' or 'postgresql' (required)
+- `--database_type`: Database type - 'postgresql' (required)
 
 ### Running All Phases Together
 
@@ -186,18 +186,19 @@ flake8 src/
 ```tree
 npd_csviper/
 ├── src/npd_csviper/
-│   ├── __init__.py              # Package initialization
-│   ├── __main__.py              # CLI entry point
-│   ├── column_normalizer.py     # Column name normalization utilities
-│   ├── metadata_extractor.py    # CSV analysis and metadata extraction
-│   ├── mysql_generator.py       # MySQL SQL generation (coming soon)
-│   ├── postgresql_generator.py  # PostgreSQL SQL generation (coming soon)
-│   └── script_generators/       # Python script generation (coming soon)
-├── tests/                       # Test files
-├── AI_Instructions/             # Development documentation
-├── setup.py                     # Package setup configuration
-├── requirements.txt             # Project dependencies
-└── README.md                    # This file
+│   ├── __init__.py                          # Package initialization
+│   ├── __main__.py                          # CLI entry point
+│   ├── column_normalizer.py                 # Column name normalization utilities
+│   ├── metadata_extractor.py                # CSV analysis and metadata extraction
+│   ├── postgresql_schema_generator.py       # PostgreSQL SQL generation
+│   ├── postgresql_import_script_generator.py # PostgreSQL import script generation
+│   ├── import_executor.py                   # Shared import execution logic
+│   └── script_invoker.py                    # Script execution and file discovery
+├── tests/                                   # Test files
+├── AI_Instructions/                         # Development documentation
+├── pyproject.toml                          # Package configuration
+├── requirements.txt                         # Project dependencies
+└── README.md                                # This file
 ```
 
 ## Output Files
@@ -210,14 +211,11 @@ npd_csviper generates several files during processing:
 
 ### Phase 2 Output
 
-- `{filename}.create_table_mysql.sql`: MySQL CREATE TABLE script
 - `{filename}.create_table_postgres.sql`: PostgreSQL CREATE TABLE script
-- `{filename}.import_data_mysql.sql`: MySQL data import script
 - `{filename}.import_data_postgres.sql`: PostgreSQL data import script
 
 ### Phase 3 Output
 
-- `go.mysql.py`: Standalone Python script for MySQL database import
 - `go.postgresql.py`: Standalone Python script for PostgreSQL database import
 
 ## Example Workflow
@@ -268,7 +266,7 @@ The invoker system is npd_csviper's intelligent file discovery and execution eng
 2. **Automatic Discovery**: The invoker searches your data directory for files matching this pattern
 3. **Latest File Selection**: It automatically selects the most recently modified file
 4. **User Confirmation**: Shows you the selected file and asks for confirmation before proceeding
-5. **Script Execution**: Runs the appropriate database import script (`go.mysql.py` or `go.postgresql.py`)
+5. **Script Execution**: Runs the PostgreSQL database import script (`go.postgresql.py`)
 
 ### Example Invoker Usage
 
@@ -287,7 +285,6 @@ And compiled scripts in:
 ```
 sales_data/
 ├── sales_data.metadata.json
-├── go.mysql.py
 ├── go.postgresql.py
 └── ...
 ```
@@ -310,7 +307,7 @@ Will automatically:
 - **Pattern-based matching**: Works with timestamped or versioned files
 - **Safety confirmation**: Always asks before proceeding
 - **Flexible search**: Supports both recursive and non-recursive directory searching
-- **Database agnostic**: Works with both MySQL and PostgreSQL scripts
+- **PostgreSQL focused**: Optimized for PostgreSQL database imports
 
 ## Contributing
 
@@ -328,7 +325,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Roadmap
 
 - [x] Phase 1: CSV metadata extraction and column normalization
-- [x] Phase 2: SQL script generation for MySQL and PostgreSQL
+- [x] Phase 2: SQL script generation for PostgreSQL
 - [x] Phase 3: Python import script generation
 - [x] Phase 4: Invoker system with automatic file discovery
 - [x] Full compilation workflow

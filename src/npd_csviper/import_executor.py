@@ -2,7 +2,7 @@
 CSV Import Executor - Shared functionality for database imports
 
 This module contains the common functionality used by generated import scripts
-for both MySQL and PostgreSQL databases.
+for PostgreSQL databases.
 """
 
 import os
@@ -29,7 +29,7 @@ class ImportExecutor:
     """
     Shared functionality for CSV database import operations.
     
-    This class provides static methods that are common between MySQL and PostgreSQL
+    This class provides static methods that are used by PostgreSQL
     import scripts, reducing code duplication and centralizing import logic.
     """
     
@@ -40,7 +40,7 @@ class ImportExecutor:
         
         Args:
             script_dir (str): Directory containing the script
-            db_type (str): Database type ('mysql' or 'postgresql')
+            db_type (str): Database type ('postgresql')
             
         Returns:
             List[Tuple[int, str]]: List of (order, filepath) tuples sorted by order
@@ -70,7 +70,7 @@ class ImportExecutor:
         
         # If no database-specific files found, look for generic .sql files
         if not files_with_order:
-            other_db_type = 'postgresql' if db_type == 'mysql' else 'mysql'
+            other_db_type = 'mysql'
             for root, dirs, files in os.walk(post_import_dir):
                 for filename in files:
                     if filename.endswith('.sql') and not filename.endswith(f'.{other_db_type}.sql'):

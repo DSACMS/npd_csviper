@@ -28,7 +28,7 @@ class CompiledScriptInvoker:
         Args:
             run_import_from (str): Directory containing compiled CSViper scripts and metadata
             import_data_from_dir (str): Directory to search for data files
-            database_type (str): Database type ('mysql' or 'postgresql')
+            database_type (str): Database type ('postgresql')
             db_schema_name (Optional[str]): Database schema name to pass to the import script
             table_name (Optional[str]): Table name to pass to the import script
             import_only_lines (Optional[int]): Limit the import to a specific number of lines
@@ -225,12 +225,12 @@ class CompiledScriptInvoker:
                              import_only_lines: Optional[int] = None,
                              trample: bool = False) -> None:
         """
-        Execute go.mysql.py or go.postgresql.py with the CSV file.
+        Execute go.postgresql.py with the CSV file.
         
         Args:
             script_dir (str): Directory containing the import scripts
             csv_file (str): Path to the CSV file to import
-            db_type (str): Database type ('mysql' or 'postgresql')
+            db_type (str): Database type ('postgresql')
             db_schema_name (Optional[str]): Database schema name to pass to the import script
             table_name (Optional[str]): Table name to pass to the import script
             import_only_lines (Optional[int]): Limit the import to a specific number of lines
@@ -240,12 +240,10 @@ class CompiledScriptInvoker:
             CSViperError: If script execution fails
         """
         # Determine script filename based on database type
-        if db_type.lower() == 'mysql':
-            script_name = 'go.mysql.py'
-        elif db_type.lower() == 'postgresql':
+        if db_type.lower() == 'postgresql':
             script_name = 'go.postgresql.py'
         else:
-            raise CSViperError(f"Unsupported database type: {db_type}")
+            raise CSViperError(f"Unsupported database type: {db_type}. Only 'postgresql' is supported.")
         
         script_path = os.path.join(script_dir, script_name)
         

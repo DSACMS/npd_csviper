@@ -152,11 +152,10 @@ class BaseSchemaGenerator:
         Returns:
             str: File extension for the database type
         """
-        extension_map = {
-            'mysql': 'mysql',
-            'postgresql': 'postgres'
-        }
-        return extension_map.get(db_type, db_type)
+        if db_type == 'postgresql':
+            return 'postgres'
+        else:
+            return db_type
     
     @staticmethod
     def _get_or_create_table_sql(metadata: Dict[str, Any], cache_dir: str, 

@@ -18,7 +18,7 @@ def cli():
     CSViper - CSV to SQL import tool
     
     Analyzes CSV files and generates SQL scripts and Python import programs
-    for loading data into relational databases (MySQL and PostgreSQL).
+    for loading data into PostgreSQL databases.
     """
     pass
 
@@ -85,11 +85,10 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
     """
     Generate SQL scripts from metadata JSON file.
     
-    Creates CREATE TABLE and data import SQL scripts for both MySQL and PostgreSQL
+    Creates CREATE TABLE and data import SQL scripts for PostgreSQL
     based on the metadata extracted from a CSV file.
     """
     try:
-        from .mysql_schema_generator import MySQLSchemaGenerator
         from .postgresql_schema_generator import PostgreSQLSchemaGenerator
         
         # Convert to absolute path
@@ -104,12 +103,6 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
         click.echo(f"Generating SQL scripts from: {metadata_path}")
         click.echo(f"Output directory: {output_dir}")
         
-        # Generate MySQL SQL scripts
-        click.echo("\n--- Generating MySQL SQL scripts ---")
-        mysql_files = MySQLSchemaGenerator.fromMetadataToSQL(
-            metadata_path, output_dir, overwrite_previous
-        )
-        
         # Generate PostgreSQL SQL scripts
         click.echo("\n--- Generating PostgreSQL SQL scripts ---")
         postgres_files = PostgreSQLSchemaGenerator.fromMetadataToSQL(
@@ -117,8 +110,6 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
         )
         
         click.echo(f"\n✓ Successfully generated SQL scripts:")
-        click.echo(f"  MySQL CREATE TABLE: {os.path.basename(mysql_files['create_table_sql'])}")
-        click.echo(f"  MySQL IMPORT DATA: {os.path.basename(mysql_files['import_data_sql'])}")
         click.echo(f"  PostgreSQL CREATE TABLE: {os.path.basename(postgres_files['create_table_sql'])}")
         click.echo(f"  PostgreSQL IMPORT DATA: {os.path.basename(postgres_files['import_data_sql'])}")
         
@@ -141,11 +132,10 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
     """
     Generate Python import scripts from resource directory.
     
-    Creates standalone Python scripts (go.mysql.py and go.postgresql.py) that can be used to import
-    CSV data into databases using the generated SQL scripts.
+    Creates standalone Python script (go.postgresql.py) that can be used to import
+    CSV data into PostgreSQL databases using the generated SQL scripts.
     """
     try:
-        from .mysql_import_script_generator import MySQLImportScriptGenerator
         from .postgresql_import_script_generator import PostgreSQLImportScriptGenerator
         
         # Convert to absolute path
@@ -160,23 +150,15 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
         click.echo(f"Generating import scripts from: {resource_dir}")
         click.echo(f"Output directory: {output_dir}")
         
-        # Generate MySQL import script
-        click.echo("\n--- Generating MySQL import script ---")
-        mysql_script_path = MySQLImportScriptGenerator.fromResourceDirToScript(
-            resource_dir, output_dir, overwrite_previous
-        )
-        
         # Generate PostgreSQL import script
         click.echo("\n--- Generating PostgreSQL import script ---")
         postgresql_script_path = PostgreSQLImportScriptGenerator.fromResourceDirToScript(
             resource_dir, output_dir, overwrite_previous
         )
         
-        click.echo(f"\n✓ Successfully generated import scripts:")
-        click.echo(f"  MySQL: {os.path.basename(mysql_script_path)}")
+        click.echo(f"\n✓ Successfully generated import script:")
         click.echo(f"  PostgreSQL: {os.path.basename(postgresql_script_path)}")
-        click.echo(f"\nTo use the scripts:")
-        click.echo(f"  python {os.path.basename(mysql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
+        click.echo(f"\nTo use the script:")
         click.echo(f"  python {os.path.basename(postgresql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
         click.echo(f"\nNote: Schema and table names can be set via DB_SCHEMA and DB_TABLE environment variables")
         
@@ -193,7 +175,7 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
               help='Directory containing compiled CSViper scripts and metadata')
 @click.option('--import_data_from_dir', required=True, type=click.Path(exists=True),
               help='Directory to search for data files')
-@click.option('--database_type', required=True, type=click.Choice(['mysql', 'postgresql']),
+@click.option('--database_type', required=True, type=click.Choice(['postgresql']),
               help='Database type for import script selection')
 @click.option('--db_schema_name', type=str,
               help='Database schema name to pass to the import script')

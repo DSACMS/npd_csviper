@@ -36,7 +36,7 @@ class BaseImportScriptGenerator:
             resource_dir (str): Directory containing metadata.json and SQL files
             output_dir (str): Output directory for script (defaults to resource_dir)
             overwrite_previous (bool): Whether to overwrite existing script file
-            db_type (str): Database type identifier ('mysql' or 'postgresql')
+            db_type (str): Database type identifier ('postgresql')
             generator_class: The specific generator class with database-specific methods
             
         Returns:
@@ -112,7 +112,7 @@ def find_post_import_sql_files(script_dir, db_type):
     
     Args:
         script_dir (str): Directory containing the script
-        db_type (str): Database type ('mysql' or 'postgresql')
+        db_type (str): Database type ('postgresql')
         
     Returns:
         List[Tuple[int, str]]: List of (order, filepath) tuples sorted by order
@@ -142,7 +142,7 @@ def find_post_import_sql_files(script_dir, db_type):
     
     # If no database-specific files found, look for generic .sql files
     if not files_with_order:
-        other_db_extension = 'postgresql' if db_type == 'mysql' else 'mysql'
+        other_db_extension = 'mysql' if db_type == 'postgresql' else 'postgresql'
         for root, dirs, files in os.walk(post_import_dir):
             for filename in files:
                 if filename.endswith('.sql') and not filename.endswith(f'.{other_db_extension}.sql'):
