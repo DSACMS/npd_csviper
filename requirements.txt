@@ -8,7 +8,7 @@ flake8==7.3.0
 iniconfig==2.1.0
 mccabe==0.7.0
 mypy_extensions==1.1.0
--e git+https://github.com/DSACMS/npd_csviper@ee45b08cbddcb7e3de06b2435d4c7c648e6b050f#egg=npd_csviper
+-e git+https://github.com/DSACMS/npd_csviper@1cdbf0f255af3228abd7e3e8a9eb114d959cd395#egg=npd_csviper
 packaging==25.0
 pathspec==0.12.1
 platformdirs==4.3.8
