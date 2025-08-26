@@ -6,12 +6,31 @@ for PostgreSQL databases.
 """
 
 import os
-import sys
 import json
 import csv
 import io
+import glob
+import inspect
 import click
 from dotenv import load_dotenv
+from typing import List, Tuple, Dict, Optional, Any, Union, TYPE_CHECKING
+
+# Handle optional database dependencies for type checking
+if TYPE_CHECKING:
+    try:
+        import psycopg2.extensions
+        PostgreSQLConnection = psycopg2.extensions.connection
+    except ImportError:
+        PostgreSQLConnection = Any
+    
+    try:
+        import pymysql
+        MySQLConnection = pymysql.Connection
+    except ImportError:
+        MySQLConnection = Any
+else:
+    PostgreSQLConnection = Any
+    MySQLConnection = Any
 
 
 class Colors:
@@ -20,7 +39,7 @@ class Colors:
     RESET = '\033[0m'
     
     @staticmethod
-    def dark_red(text):
+    def dark_red(text: str) -> str:
         """Format text in dark red color"""
         return f"{Colors.DARK_RED}{text}{Colors.RESET}"
 
@@ -34,7 +53,7 @@ class ImportExecutor:
     """
     
     @staticmethod
-    def find_post_import_sql_files(script_dir, db_type):
+    def find_post_import_sql_files(*, script_dir: str, db_type: str) -> List[Tuple[int, str]]:
         """
         Find and return post-import SQL files in execution order.
         
@@ -45,7 +64,6 @@ class ImportExecutor:
         Returns:
             List[Tuple[int, str]]: List of (order, filepath) tuples sorted by order
         """
-        import glob
         
         post_import_dir = os.path.join(script_dir, 'post_import_sql')
         if not os.path.exists(post_import_dir):
@@ -90,7 +108,11 @@ class ImportExecutor:
         return files_with_order
 
     @staticmethod
-    def execute_post_import_sql(connection, post_import_files, db_schema_name, table_name, use_colors=True):
+    def execute_post_import_sql(*, connection: Any, 
+                              post_import_files: List[Tuple[int, str]], 
+                              db_schema_name: str, 
+                              table_name: str, 
+                              use_colors: bool = True) -> None:
         """
         Execute post-import SQL files in order.
         
@@ -143,7 +165,7 @@ class ImportExecutor:
         click.echo("✓ Post-import SQL execution completed")
 
     @staticmethod
-    def find_env_file():
+    def find_env_file() -> Optional[str]:
         """
         Find .env file in current directory or parent directory.
         When scripts are invoked from a parent directory, look for .env
@@ -193,7 +215,7 @@ class ImportExecutor:
         return None
 
     @staticmethod
-    def check_gitignore_for_env():
+    def check_gitignore_for_env() -> None:
         """
         Check if .env is excluded in local .gitignore file.
         When scripts are invoked from a parent directory, look for .gitignore
@@ -248,7 +270,7 @@ class ImportExecutor:
         click.echo("Warning: No .gitignore file found. Consider creating one and adding .env to it")
 
     @staticmethod
-    def validate_csv_header(csv_file, expected_columns, encoding='utf-8', use_colors=True):
+    def validate_csv_header(csv_file, expected_columns, encoding='utf-8', use_colors=True) -> None:
         """
         Validate that CSV header matches expected columns from metadata.
         
@@ -281,7 +303,7 @@ class ImportExecutor:
                     raise ValueError(error_msg)
 
     @staticmethod
-    def load_sql_file(filename, script_dir=None, use_colors=True):
+    def load_sql_file(filename, script_dir=None, use_colors=True) -> str:
         """
         Load SQL content from file.
         
@@ -310,6 +332,9 @@ class ImportExecutor:
             finally:
                 del frame
         
+        if script_dir is None:
+            raise FileNotFoundError("Could not determine script directory for SQL file loading")
+            
         sql_path = os.path.join(script_dir, filename)
         
         if not os.path.exists(sql_path):
@@ -323,7 +348,7 @@ class ImportExecutor:
             return f.read()
 
     @staticmethod
-    def replace_sql_placeholders(sql_content, db_name, table_name, csv_path):
+    def replace_sql_placeholders(sql_content, db_name, table_name, csv_path) -> str:
         """
         Replace placeholders in SQL content with actual values.
         
@@ -341,7 +366,7 @@ class ImportExecutor:
                          .replace('REPLACE_ME_CSV_FULL_PATH', csv_path)
 
     @staticmethod
-    def load_and_validate_config(env_file_location, csv_file, db_schema_name, table_name, metadata_filename, use_colors=True):
+    def load_and_validate_config(env_file_location, csv_file, db_schema_name, table_name, metadata_filename, use_colors=True) -> Tuple[Dict[str, str], str, str, Dict[str, Any], str]:
         """
         Load environment configuration and validate inputs.
         
@@ -430,6 +455,9 @@ class ImportExecutor:
         finally:
             del frame
         
+        if script_dir is None:
+            raise FileNotFoundError("Could not determine script directory for metadata file loading")
+            
         metadata_file = os.path.join(script_dir, metadata_filename)
         
         with open(metadata_file, 'r') as f:
@@ -468,7 +496,7 @@ class ImportExecutor:
         return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
-    def execute_postgresql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None):
+    def execute_postgresql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None) -> None:
         """
         Execute PostgreSQL import process.
         
@@ -483,8 +511,8 @@ class ImportExecutor:
             import_only_lines (int, optional): Number of lines to import for testing. Defaults to None (all lines).
         """
         try:
-            import psycopg2
-            import psycopg2.extras
+            import psycopg2 # type: ignore
+            import psycopg2.extras # type: ignore
         except ImportError as e:
             from .exceptions import ImportExecutionError
             raise ImportExecutionError(
@@ -539,7 +567,8 @@ class ImportExecutor:
             with connection.cursor() as cursor:
                 # Check if table exists
                 cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = %s AND table_name = %s)", (db_schema_name, table_name))
-                table_exists = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                table_exists = result[0] if result else False
 
                 if table_exists:
                     if not trample:
@@ -602,19 +631,27 @@ class ImportExecutor:
                                                                 show_eta=True)
                             self.progress_bar.__enter__()
                         
-                        def read(self, size=-1):
+                        def read(self, size: int = -1) -> str:
                             data = self.file_obj.read(size)
                             if data:
                                 self.bytes_read += len(data)
                                 self.progress_bar.update(len(data))
                             return data
                         
-                        def readline(self):
-                            line = self.file_obj.readline()
+                        def readline(self, length: int = -1) -> str:
+                            line = self.file_obj.readline(length) if length >= 0 else self.file_obj.readline()
                             if line:
                                 self.bytes_read += len(line)
                                 self.progress_bar.update(len(line))
                             return line
+                        
+                        def write(self, data: str) -> int:
+                            # This wrapper is primarily for reading, but we need to satisfy the protocol
+                            result = self.file_obj.write(data)
+                            if hasattr(self.file_obj, 'write'):
+                                self.bytes_read += len(data)
+                                self.progress_bar.update(len(data))
+                            return result
                         
                         def __getattr__(self, name):
                             return getattr(self.file_obj, name)
@@ -626,13 +663,14 @@ class ImportExecutor:
                     with open(csv_file, 'r', encoding=encoding) as f:
                         progress_wrapper = ProgressFileWrapper(f, file_size)
                         try:
-                            cursor.copy_expert(copy_sql, progress_wrapper)
+                            cursor.copy_expert(copy_sql, progress_wrapper)  # type: ignore
                         finally:
                             progress_wrapper.close()
                 
                 # Get row count
                 cursor.execute(f"SELECT COUNT(*) FROM {db_schema_name}.{table_name}")
-                row_count = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                row_count = result[0] if result else 0
                 click.echo(f"✓ Successfully imported {row_count:,} rows")
             
             connection.commit()
@@ -655,14 +693,15 @@ class ImportExecutor:
             finally:
                 del frame
             
-            post_import_files = ImportExecutor.find_post_import_sql_files(script_dir, 'postgresql')
-            ImportExecutor.execute_post_import_sql(connection, post_import_files, db_schema_name, table_name)
+            if script_dir is not None:
+                post_import_files = ImportExecutor.find_post_import_sql_files(script_dir=script_dir, db_type='postgresql')
+                ImportExecutor.execute_post_import_sql(connection=connection, post_import_files=post_import_files, db_schema_name=db_schema_name, table_name=table_name)
             
         finally:
             connection.close()
 
     @staticmethod
-    def execute_mysql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, import_data_sql_file):
+    def execute_mysql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, import_data_sql_file) -> None:
         """
         Execute MySQL import process.
         
@@ -728,7 +767,8 @@ class ImportExecutor:
             with connection.cursor() as cursor:
                 # Check if table exists
                 cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s", (db_schema_name, table_name))
-                table_exists = cursor.fetchone()[0] > 0
+                result = cursor.fetchone()
+                table_exists = (result[0] if result else 0) > 0
 
                 if table_exists:
                     if not trample:
@@ -751,7 +791,8 @@ class ImportExecutor:
                 
                 # Get row count
                 cursor.execute(f"SELECT COUNT(*) FROM {db_schema_name}.{table_name}")
-                row_count = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                row_count = result[0] if result else 0
                 click.echo(f"✓ Successfully imported {row_count:,} rows")
             
             connection.commit()
@@ -774,8 +815,9 @@ class ImportExecutor:
             finally:
                 del frame
             
-            post_import_files = ImportExecutor.find_post_import_sql_files(script_dir, 'mysql')
-            ImportExecutor.execute_post_import_sql(connection, post_import_files, db_schema_name, table_name, use_colors=False)
+            if script_dir is not None:
+                post_import_files = ImportExecutor.find_post_import_sql_files(script_dir=script_dir, db_type='mysql')
+                ImportExecutor.execute_post_import_sql(connection=connection, post_import_files=post_import_files, db_schema_name=db_schema_name, table_name=table_name, use_colors=False)
             
         finally:
             connection.close()
