@@ -508,7 +508,7 @@ class ImportExecutor:
                 user=db_config['DB_USER'],
                 password=db_config['DB_PASSWORD'],
                 dbname=db_config['DB_NAME'],
-                connection_timeout=120,   # give up after two minutes 
+                connect_timeout=120,   # give up after two minutes 
                 keepalives=1,             # support long running tcp connections for big files
                 keepalives_idle=60,       # start probes after 60s idle
                 keepalives_interval=10,   # probe every 10s
