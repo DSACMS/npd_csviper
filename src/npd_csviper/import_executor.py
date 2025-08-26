@@ -508,12 +508,12 @@ class ImportExecutor:
                 user=db_config['DB_USER'],
                 password=db_config['DB_PASSWORD'],
                 dbname=db_config['DB_NAME'],
-                connect_timeout=120,   # give up after two minutes 
+                connect_timeout=600,      # give up after 10 minutes 
                 keepalives=1,             # support long running tcp connections for big files
                 keepalives_idle=60,       # start probes after 60s idle
                 keepalives_interval=10,   # probe every 10s
-                keepalives_count=5,
-                application_name=f"csviper importing to {db_schema_name}.{table_name}"                # give up after 5 probes
+                keepalives_count=20,      # keep trying!! 
+                application_name=f"csviper importing to {db_schema_name}.{table_name}"                # helpful for reading the status on the db server
             )
         except psycopg2.Error as e:
             from .exceptions import DatabaseConnectionError
