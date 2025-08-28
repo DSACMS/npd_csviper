@@ -270,7 +270,7 @@ class ImportExecutor:
         click.echo("Warning: No .gitignore file found. Consider creating one and adding .env to it")
 
     @staticmethod
-    def validate_csv_header(csv_file, expected_columns, encoding='utf-8', use_colors=True) -> None:
+    def validate_csv_header(csv_file, expected_columns, encoding='utf-8', delimiter=',', quote_char='"', use_colors=True) -> None:
         """
         Validate that CSV header matches expected columns from metadata.
         
@@ -278,13 +278,15 @@ class ImportExecutor:
             csv_file (str): Path to CSV file
             expected_columns (list): Expected column names from metadata
             encoding (str): File encoding to use for reading CSV
+            delimiter (str): CSV delimiter character
+            quote_char (str): CSV quote character
             use_colors (bool): Whether to use colored output for errors
             
         Raises:
             ValueError: If headers don't match
         """
         with open(csv_file, 'r', newline='', encoding=encoding) as f:
-            reader = csv.reader(f)
+            reader = csv.reader(f, delimiter=delimiter, quotechar=quote_char)
             actual_header = next(reader)
         
         if len(actual_header) != len(expected_columns):
@@ -496,7 +498,7 @@ class ImportExecutor:
         return db_config, db_schema_name, table_name, metadata, encoding
 
     @staticmethod
-    def execute_postgresql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None) -> None:
+    def execute_postgresql_import(*, db_config, db_schema_name, table_name, csv_file, trample, create_table_sql_file, encoding='utf-8', import_only_lines=None, delimiter=',', quote_char='"') -> None:
         """
         Execute PostgreSQL import process.
         
@@ -591,8 +593,11 @@ class ImportExecutor:
                 # Import data using COPY FROM STDIN with progress bar
                 click.echo("Importing data...")
                 
-                # Build the COPY command
-                copy_sql = f"COPY {db_schema_name}.{table_name} FROM STDIN WITH CSV HEADER"
+                # Build the COPY command with proper delimiter
+                if delimiter == ',':
+                    copy_sql = f"COPY {db_schema_name}.{table_name} FROM STDIN WITH CSV HEADER"
+                else:
+                    copy_sql = f"COPY {db_schema_name}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER '{delimiter}'"
 
                 if import_only_lines and int(import_only_lines) > 0:
                     limit = int(import_only_lines)
