@@ -139,7 +139,9 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample, impor
         # Validate CSV header with proper encoding
         try:
             expected_columns = metadata['original_column_names']
-            ImportExecutor.validate_csv_header(csv_file, expected_columns, encoding)
+            delimiter = metadata.get('delimiter', ',')
+            quote_char = metadata.get('quote_character', '"')
+            ImportExecutor.validate_csv_header(csv_file, expected_columns, encoding, delimiter, quote_char)
         except Exception as e:
             from npd_csviper.exceptions import ImportExecutionError
             raise ImportExecutionError(
@@ -160,6 +162,8 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample, impor
             click.echo("Warning: --trample flag is set. Existing table data will be overwritten.")
         
         # Execute PostgreSQL import using the shared executor
+        delimiter = metadata.get('delimiter', ',')
+        quote_char = metadata.get('quote_character', '"')
         ImportExecutor.execute_postgresql_import(
             db_config=db_config,
             db_schema_name=db_schema_name,
@@ -168,7 +172,9 @@ def main(env_file_location, csv_file, db_schema_name, table_name, trample, impor
             trample=trample,
             create_table_sql_file='{csv_basename}.create_table_postgres.sql',
             encoding=encoding,
-            import_only_lines=import_only_lines
+            import_only_lines=import_only_lines,
+            delimiter=delimiter,
+            quote_char=quote_char
         )
         
         click.echo("✓ PostgreSQL import ran successfully!")
