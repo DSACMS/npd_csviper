@@ -222,29 +222,33 @@ class CSVMetadataExtractor:
             CSVEncodingError: If encoding cannot be detected
         """
         try:
-            print(f"DEBUG: Reading file samples for encoding detection...")
+            print(f"Progress: Reading file samples for encoding detection...")
             
             # Read samples from different parts of the file for better detection
             samples = []
             file_size = os.path.getsize(file_path)
+            print(f"Progress: File size is {file_size:,} bytes")
             
             with open(file_path, 'rb') as f:
                 # Read from beginning (first 100KB)
+                print(f"Progress: Reading sample from beginning of file...")
                 samples.append(f.read(100000))
                 
                 # If file is large enough, read from middle and end
                 if file_size > 500000:  # 500KB
                     # Read from middle
+                    print(f"Progress: Reading sample from middle of file...")
                     f.seek(file_size // 2)
                     samples.append(f.read(100000))
                     
                     # Read from near end (but not the very end to avoid incomplete lines)
+                    print(f"Progress: Reading sample from end of file...")
                     f.seek(max(0, file_size - 200000))
                     samples.append(f.read(100000))
             
             # Combine samples for detection
             combined_sample = b''.join(samples)
-            print(f"DEBUG: Analyzing {len(combined_sample):,} bytes for encoding detection...")
+            print(f"Progress: Analyzing {len(combined_sample):,} bytes for encoding detection...")
                 
             result = chardet.detect(combined_sample)
             if result['encoding'] is None:
@@ -538,9 +542,9 @@ class CSVMetadataExtractor:
                 for row in reader:
                     row_number += 1
                     
-                    # Print progress every 100,000 rows
-                    if row_number % 100000 == 0:
-                        print(f"DEBUG: Processed {row_number:,} rows...")
+                    # Print progress every 10,000 rows
+                    if row_number % 10000 == 0:
+                        print(f"Progress: Analyzed {row_number:,} rows for column widths...")
                     
                     # Check column count consistency
                     if len(row) != expected_column_count:
