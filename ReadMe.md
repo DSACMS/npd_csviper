@@ -1,55 +1,55 @@
 # npd_csviper
 
-npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into PostgreSQL databases. 
-It is designed to allow AI tools to reliably accomplish this task without incurring substantial data pipeline debt. 
+npd_csviper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into PostgreSQL databases.
+It is designed to allow AI tools to reliably accomplish this task without incurring substantial data pipeline debt.
 
 This is *not* a project that imports CSV files. It is a project that generates programs which import CSV files.
 
 ## Approach and Purpose
 
-Importing CSV files is a simple chore initially, but maintaining CSV imports over time is much more difficult. 
+Importing CSV files is a simple chore initially, but maintaining CSV imports over time is much more difficult.
 As CSV files envitably change, simple scripts continue to function, despite underlying data changes that should be accounted for.
 This project is designed to enable AI code-gen tools to successfully create CSV data imports, data expectations, documentation and post-processing in a manner convenient for human validation.
 
 When a CSV file is imported into the database, without attention to how the underlying data might have changed, this introduces a pernicous form of technical debt
-alled Data Pipeline Debt, which was a term coined by the 
+alled Data Pipeline Debt, which was a term coined by the
 [2018 version of an article](https://web.archive.org/web/20201027032456/https://greatexpectations.io/blog/down-with-pipeline-debt-introducing-great-expectations/) from the [Great Expectations](https://greatexpectations.io/) project. (The [later edition of the same article](https://greatexpectations.io/blog/down-with-pipeline-debt-introducing-great-expectations/) is worth reading too, but the first version articulates the problem more concisely).
-An interesting tidbit is that the Great Expectations project was founded by a team of Health IT developers, who were experiencing the same unreasonable data environment that we have here at CMS. 
+An interesting tidbit is that the Great Expectations project was founded by a team of Health IT developers, who were experiencing the same unreasonable data environment that we have here at CMS.
 
-A proper CSV import process does not create Data Pipeline Debt by: 
+A proper CSV import process does not create Data Pipeline Debt by:
 
-* For all features, tries to Fail safely. Rather than importing data that might be a problem or that does not pass expectations, the code will fail in a way that forces users to pay attention when a given CSV file changes underneath them. 
-* Ensuring that data expectation tests are always designed and run alongside the data import and that those expectation tests: 
+* For all features, tries to Fail safely. Rather than importing data that might be a problem or that does not pass expectations, the code will fail in a way that forces users to pay attention when a given CSV file changes underneath them.
+* Ensuring that data expectation tests are always designed and run alongside the data import and that those expectation tests:
 * Ensure that column lengths are not changing. This requires that columns are given +1 the data size they need to see if the underlying data ever fills the last character (it should not)
 * Addresses character set inconsistencies up-front
 * Seperates the parameters for data import from the execution of that data import so the import parameters can be modifies as a seperate code-based
-* Allows for AI tools to auto-generation of import code, based on CSV contents, but subsequent code generation should not trample any person-tweaked code.
+* Allows for AI tools to auto-generate import code, based on CSV contents, but subsequent code generation should not trample any person-tweaked code.
+* See [AI_Instructions/HowToDoANewImport.md](AI_Instructions/HowToDoANewImport.md) for instructions that can be given to your AI tool of choice to generate a new import from a csv file. 
 * Supports importing to remote databases
 * Auto-creates database safe column names and maintains the mapping between the database safe column names and the database names.
 * Fails safely if the column names change.
-* Fails safely if the column names are added.
-* Provides support for post-processing scripts and raw-sql
-
+* Fails safely if additional columns are added.
+* Fails safely if columns are removed
+* Fails safely if columns are re-ordered
+* Provides support for post-processing python and sql scripts
 
 It supports PostgreSQL and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.
 
 ## Features
 
-- **CSV Analysis**: Automatically detects CSV format (delimiter, quote character) and analyzes column structure
-- **Column Normalization**: Converts column names to SQL-safe identifiers with intelligent duplicate handling
-- **Modular Design**: Four-phase approach allows for flexible workflow management
-- **Standalone Scripts**: Generates self-contained Python import scripts for easy deployment
-- **Intelligent File Discovery**: Invoker system automatically finds and processes the latest matching data files
-- **Pattern-Based Matching**: Uses glob patterns to handle timestamped or versioned file naming conventions
-- **Full Compilation Workflow**: Single command to process CSV files from analysis to ready-to-run import scripts
+* **CSV Analysis**: Automatically detects CSV format (delimiter, quote character) and analyzes column structure
+* **Column Normalization**: Converts column names to SQL-safe identifiers with intelligent duplicate handling
+* **Modular Design**: Four-phase approach allows for flexible workflow management
+* **Standalone Scripts**: Generates self-contained Python import scripts for easy deployment
+* **Intelligent File Discovery**: Invoker system automatically finds and processes the latest matching data files
+* **Pattern-Based Matching**: Uses glob patterns to handle timestamped or versioned file naming conventions
+* **Full Compilation Workflow**: Single command to process CSV files from analysis to ready-to-run import scripts
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- `csvlint` command-line tool. See [Installation Instructions](https://github.com/Data-Liberation-Front/csvlint.rb).
-  - On macOS with Homebrew: `brew install ruby && gem install bundler csvlint`
+* Python 3.8 or higher
 
 ### From Source (Development)
 
@@ -64,7 +64,7 @@ cd npd_csviper
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source source_me_to_get_venv.sh  
 ```
 
 3. Install dependencies:
@@ -73,16 +73,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Install in development mode:
+4. Install the command line tool
 
 ```bash
-pip install -e .
-```
-
-### From PyPI (Coming Soon)
-
-```bash
-pip install npd_csviper
+source source_me_for_local_session_install.sh
 ```
 
 ## Usage
@@ -99,9 +93,9 @@ python -m npd_csviper extract_metadata --from_csv=data.csv --output_dir=./output
 
 Options:
 
-- `--from_csv`: Path to the CSV file to analyze (required)
-- `--output_dir`: Output directory (defaults to CSV filename without extension)
-- `--overwrite_previous`: Overwrite existing output files
+* `--from_csv`: Path to the CSV file to analyze (required)
+* `--output_dir`: Output directory (defaults to CSV filename without extension)
+* `--overwrite_previous`: Overwrite existing output files
 
 ### Phase 2: Generate SQL Scripts
 
@@ -129,56 +123,14 @@ python -m npd_csviper invoke-compiled-script --run_import_from=./output/ --impor
 
 Options:
 
-- `--run_import_from`: Directory containing compiled npd_csviper scripts and metadata (required)
-- `--import_data_from_dir`: Directory to search for data files (required)
-- `--database_type`: Database type - 'postgresql' (required)
+* `--run_import_from`: Directory containing compiled npd_csviper scripts and metadata (required)
+* `--import_data_from_dir`: Directory to search for data files (required)
+* `--database_type`: Database type - 'postgresql' (required)
 
 ### Running All Phases Together
 
 ```bash
 python -m npd_csviper full_compile --from_csv=data.csv --output_dir=./output/ --overwrite_previous
-```
-
-## Development Setup
-
-### Prerequisites
-
-- Python 3.8 or higher
-- Virtual environment (recommended)
-- `csvlint` command-line tool. See [Installation Instructions](https://github.com/Data-Liberation-Front/csvlint.rb).
-  - On macOS with Homebrew: `brew install ruby && gem install bundler csvlint`
-
-### Setting up the Development Environment
-
-1. Clone the repository and navigate to the project directory
-2. Source the virtual environment setup script:
-
-```bash
-source source_me_to_get_venv.sh
-```
-
-3. Install development dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
-### Running Tests
-
-```bash
-pytest
-```
-
-### Code Formatting
-
-```bash
-black src/
-```
-
-### Linting
-
-```bash
-flake8 src/
 ```
 
 ## Project Structure
@@ -201,22 +153,22 @@ npd_csviper/
 └── README.md                                # This file
 ```
 
-## Output Files
+## Running csviper to get installation scripts
 
 npd_csviper generates several files during processing:
 
 ### Phase 1 Output
 
-- `{filename}.metadata.json`: Contains CSV structure analysis, normalized column names, and column width information
+* `{filename}.metadata.json`: Contains CSV structure analysis, normalized column names, and column width information
 
 ### Phase 2 Output
 
-- `{filename}.create_table_postgres.sql`: PostgreSQL CREATE TABLE script
-- `{filename}.import_data_postgres.sql`: PostgreSQL data import script
+* `{filename}.create_table_postgres.sql`: PostgreSQL CREATE TABLE script
+* `{filename}.import_data_postgres.sql`: PostgreSQL data import script
 
 ### Phase 3 Output
 
-- `go.postgresql.py`: Standalone Python script for PostgreSQL database import
+* `go.postgresql.py`: Standalone Python script for PostgreSQL database import
 
 ## Example Workflow
 
@@ -236,7 +188,9 @@ python -m npd_csviper full_compile --from_csv=sales_data.csv --output_dir=./sale
 python -m npd_csviper extract_metadata --from_csv=sales_data.csv
 ```
 
-2. **Review the generated metadata** in `sales_data/sales_data.metadata.json`
+2. **Review the generated metadata**
+
+Look in `sales_data/sales_data.metadata.json`
 
 3. **Generate SQL scripts**:
 
@@ -259,6 +213,7 @@ python -m npd_csviper invoke-compiled-script --run_import_from=./sales_data/ --i
 ## The Invoker System
 
 The invoker system is npd_csviper's intelligent file discovery and execution engine. It automatically finds the most recent data file matching your original CSV pattern and executes the appropriate import script.
+If you need finer grain control, you can just use the go.postgresql.py install script by itself.
 
 ### How It Works
 
@@ -272,7 +227,7 @@ The invoker system is npd_csviper's intelligent file discovery and execution eng
 
 If you have a directory with multiple data files:
 
-```
+```text
 data/
 ├── sales_data_2024-01.csv
 ├── sales_data_2024-02.csv
@@ -282,7 +237,7 @@ data/
 
 And compiled scripts in:
 
-```
+```text
 sales_data/
 ├── sales_data.metadata.json
 ├── go.postgresql.py
@@ -296,18 +251,19 @@ python -m npd_csviper invoke-compiled-script --run_import_from=./sales_data/ --i
 ```
 
 Will automatically:
-- Find all files matching `sales_data_*.csv`
-- Select `sales_data_2024-03.csv` (most recent)
-- Ask for your confirmation
-- Execute `go.postgresql.py` with the selected file
+
+* Find all files matching `sales_data_*.csv`
+* Select `sales_data_2024-03.csv` (most recent)
+* Ask for your confirmation
+* Execute `go.postgresql.py` with the selected file
 
 ### Benefits
 
-- **No manual file specification**: Automatically finds the latest data file
-- **Pattern-based matching**: Works with timestamped or versioned files
-- **Safety confirmation**: Always asks before proceeding
-- **Flexible search**: Supports both recursive and non-recursive directory searching
-- **PostgreSQL focused**: Optimized for PostgreSQL database imports
+* **No manual file specification**: Automatically finds the latest data file
+* **Pattern-based matching**: Works with timestamped or versioned files
+* **Safety confirmation**: Always asks before proceeding
+* **Flexible search**: Supports both recursive and non-recursive directory searching
+* **PostgreSQL focused**: Optimized for PostgreSQL database imports
 
 ## Contributing
 
@@ -324,17 +280,15 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Roadmap
 
-- [x] Phase 1: CSV metadata extraction and column normalization
-- [x] Phase 2: SQL script generation for PostgreSQL
-- [x] Phase 3: Python import script generation
-- [x] Phase 4: Invoker system with automatic file discovery
-- [x] Full compilation workflow
-- [ ] Enhanced error handling and validation
-- [ ] Progress bars for large file processing
-- [ ] Configuration file support
-- [ ] Additional database backend support
-- [ ] Web interface for easier usage
-- [ ] Docker containerization
+* [x] Phase 1: CSV metadata extraction and column normalization
+* [x] Phase 2: SQL script generation for PostgreSQL
+* [x] Phase 3: Python import script generation
+* [x] Phase 4: Invoker system with automatic file discovery
+* [x] Full compilation workflow
+* [ ] Enhanced error handling and validation, including replacing the ruby csvlint with something in python.
+* [ ] Progress bars for large file processing
+* [ ] Configuration file support
+* [ ] Docker containerization
 
 ## Support
 
