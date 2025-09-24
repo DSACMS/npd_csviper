@@ -21,7 +21,9 @@ class CompiledScriptInvoker:
                             database_type: str, db_schema_name: Optional[str] = None,
                             table_name: Optional[str] = None,
                             import_only_lines: Optional[int] = None,
-                            trample: bool = False) -> None:
+                            trample: bool = False,
+                            headless: bool = False,
+                              ) -> None:
         """
         Main entry point for directory-based import invocation.
         
@@ -55,7 +57,7 @@ class CompiledScriptInvoker:
             )
             
             # 3. Confirm with user
-            if not CompiledScriptInvoker._confirm_file_selection(latest_file, metadata):
+            if not headless and not CompiledScriptInvoker._confirm_file_selection(latest_file, metadata):
                 print("Operation cancelled by user.")
                 return
             
