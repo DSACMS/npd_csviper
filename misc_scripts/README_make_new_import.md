@@ -9,13 +9,14 @@ The `make_new_import.py` script automates the process of setting up new data imp
 For each CSV file in a specified input directory, the script:
 
 1. **Prompts the user** for import configuration (directory name, schema, table name)
-2. **Creates** the necessary directory structure
-3. **Runs** the three npd_csviper compilation steps:
+2. **Checks** if the target directory already exists and prompts for overwrite confirmation
+3. **Creates** the necessary directory structure
+4. **Runs** the three npd_csviper compilation steps (with `--no-csv-lint` flag):
    - `extract-metadata` - Analyzes the CSV and creates metadata JSON
    - `build-sql` - Generates SQL table creation scripts
    - `build-import-script` - Creates the import execution script (go.postgresql.py)
-4. **Generates** environment variable entries for `data_file_locations.env`
-5. **Saves** the environment variables to `add_to_data_file_locations.txt` in each import directory
+5. **Generates** environment variable entries for `data_file_locations.env`
+6. **Saves** the environment variables to `add_to_data_file_locations.txt` in each import directory
 
 ## Prerequisites
 
@@ -51,6 +52,10 @@ For each CSV file found, you'll be asked:
 2. **"What is the directory name for this import?"**
    - This becomes the subdirectory name under `parent_output_dir`
    - Example: `my_new_import`
+   - **If the directory already exists**, you'll be prompted with:
+     - **"Do you want to overwrite its contents? [y/N]"**
+     - Default is **No** - just press Enter to skip and preserve the existing directory
+     - Type `y` to proceed with overwriting the existing directory
 
 3. **"What is the schema name for this table?"**
    - Database schema where the table will be created
@@ -236,8 +241,31 @@ When modifying this script:
 3. Test with various CSV file types
 4. Consider edge cases (empty files, special characters, etc.)
 
+## Directory Overwrite Example
+
+When running the script on an existing import directory, you'll see:
+
+```
+CSV File: provider_data_2025.csv
+Full Path: /path/to/local_data/new_medicare_data/provider_data_2025.csv
+Do you want to import this CSV? [y/n]: y
+What is the directory name for this import? medicare_provider_2025
+
+⚠️  Directory 'medicare_provider_2025' already exists at: ../data_import_scripts/medicare_provider_2025
+Do you want to overwrite its contents? [y/N] (default: N): 
+Skipping this CSV file to preserve existing directory.
+```
+
+Simply pressing Enter (or typing 'n') will skip the file and preserve your existing work. Type 'y' only if you want to regenerate the import files.
+
 ## Version History
 
+- v1.1.0 (2025-01-21) - Overwrite protection and linting improvements
+  - Added directory existence check with overwrite confirmation
+  - Default to preserving existing directories (press Enter to skip)
+  - Added `--no-csv-lint` flag to all npd_csviper commands
+  - Improved user experience for re-running imports
+  
 - v1.0.0 (2025-01-21) - Initial implementation
   - Automated CSV discovery and processing
   - Interactive configuration prompts

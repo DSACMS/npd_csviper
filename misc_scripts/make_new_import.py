@@ -70,12 +70,13 @@ def generate_env_prefix(directory_name: str) -> str:
     return prefix
 
 
-def ask_user_questions(csv_file: Path) -> Optional[Dict[str, str]]:
+def ask_user_questions(csv_file: Path, parent_output_dir: Path) -> Optional[Dict[str, str]]:
     """
     Ask user interactive questions about the CSV import.
     
     Args:
         csv_file: Path to the CSV file
+        parent_output_dir: Parent directory for output (to check for existing directories)
         
     Returns:
         Dictionary with user responses, or None if user skips this CSV
@@ -96,12 +97,29 @@ def ask_user_questions(csv_file: Path) -> Optional[Dict[str, str]]:
         else:
             print("Please enter 'y' or 'n'")
     
-    # Ask for directory name
+    # Ask for directory name and check if it exists
     while True:
         directory_name = input("What is the directory name for this import? ").strip()
-        if directory_name:
-            break
-        print("Directory name cannot be empty. Please try again.")
+        if not directory_name:
+            print("Directory name cannot be empty. Please try again.")
+            continue
+        
+        # Check if directory already exists
+        output_dir = parent_output_dir / directory_name
+        if output_dir.exists() and output_dir.is_dir():
+            print(f"\n⚠️  Directory '{directory_name}' already exists at: {output_dir}")
+            while True:
+                overwrite_response = input("Do you want to overwrite its contents? [y/N] (default: N): ").strip().lower()
+                # Default to "no" if empty response
+                if overwrite_response == '' or overwrite_response in ['n', 'no']:
+                    print("Skipping this CSV file to preserve existing directory.\n")
+                    return None
+                elif overwrite_response in ['y', 'yes']:
+                    print(f"Will overwrite contents of existing directory.")
+                    break
+                else:
+                    print("Please enter 'y' or 'n' (or press Enter for 'n')")
+        break
     
     # Ask for schema name
     while True:
@@ -145,7 +163,8 @@ def run_npd_csviper_steps(csv_path: Path, output_dir: Path) -> bool:
         [
             "npd_csviper", "extract-metadata",
             f"--from_csv={csv_path}",
-            f"--output_dir={output_dir}"
+            f"--output_dir={output_dir}",
+            "--no-csv-lint"
         ],
         # Step 2: Build SQL
         [
@@ -257,7 +276,7 @@ def process_csv_file(
         True if processing succeeded, False otherwise
     """
     # Ask user questions
-    user_input = ask_user_questions(csv_file)
+    user_input = ask_user_questions(csv_file, parent_output_dir)
     if user_input is None:
         return True  # User chose to skip, not an error
     
