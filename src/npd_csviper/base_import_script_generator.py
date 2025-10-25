@@ -28,7 +28,7 @@ class BaseImportScriptGenerator:
     
     @staticmethod
     def fromResourceDirToScript(resource_dir, output_dir=None, overwrite_previous=False, 
-                               db_type=None, generator_class=None):
+                               db_type=None, generator_class=None, script_template='dagster'):
         """
         Generate a database-specific import script from resource directory.
         
@@ -38,6 +38,7 @@ class BaseImportScriptGenerator:
             overwrite_previous (bool): Whether to overwrite existing script file
             db_type (str): Database type identifier ('postgresql')
             generator_class: The specific generator class with database-specific methods
+            script_template (str): Name of the template to use (default: 'dagster')
             
         Returns:
             str: Path to the generated script file
@@ -71,23 +72,29 @@ class BaseImportScriptGenerator:
         # Validate required SQL files exist
         generator_class._validate_sql_files(resource_dir, metadata)
         
+        # Derive import_key from output directory for filename
+        if output_dir:
+            import_key = os.path.basename(os.path.abspath(output_dir))
+        else:
+            import_key = "REPLACE_ME"
+        
         # Generate script
-        script_filename = f'go.{db_type}.py'
-        go_script_path = os.path.join(output_dir, script_filename)
+        script_filename = f'{import_key}.py'
+        script_path = os.path.join(output_dir, script_filename)
         
-        if os.path.exists(go_script_path) and not overwrite_previous:
-            click.echo(Colors.dark_red(f"Warning: {script_filename} already exists: {go_script_path}. Use --overwrite to overwrite."))
-            return go_script_path
+        if os.path.exists(script_path) and not overwrite_previous:
+            click.echo(Colors.dark_red(f"Warning: {script_filename} already exists: {script_path}. Use --overwrite to overwrite."))
+            return script_path
         
-        script_content = generator_class._generate_script_content(metadata)
+        script_content = generator_class._generate_script_content(metadata, script_template, output_dir)
         
-        with open(go_script_path, 'w') as f:
+        with open(script_path, 'w') as f:
             f.write(script_content)
         
         # Make the script executable
-        os.chmod(go_script_path, 0o755)
+        os.chmod(script_path, 0o755)
         
-        return go_script_path
+        return script_path
     
     @staticmethod
     def _find_metadata_file(resource_dir):

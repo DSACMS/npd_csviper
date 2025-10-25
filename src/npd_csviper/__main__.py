@@ -30,7 +30,7 @@ def cli():
               help='Output directory (defaults to CSV filename without extension)')
 @click.option('--overwrite_previous', is_flag=True, default=False,
               help='Overwrite existing output files')
-@click.option('--no-csv-lint', is_flag=True, default=False,
+@click.option('--no-csv-lint', is_flag=True, default=True,
                 help='Skip the csvlint check')
 def extract_metadata(from_csv, output_dir, overwrite_previous, no_csv_lint):
     """
@@ -128,7 +128,9 @@ def build_sql(from_metadata_json, output_dir, overwrite_previous):
               help='Output directory (defaults to resource directory)')
 @click.option('--overwrite_previous', is_flag=True, default=False,
               help='Overwrite existing output files')
-def build_import_script(from_resource_dir, output_dir, overwrite_previous):
+@click.option('--script_template', type=str, default='dagster',
+              help='Template to use for the import script (default: "dagster")')
+def build_import_script(from_resource_dir, output_dir, overwrite_previous, script_template):
     """
     Generate Python import scripts from resource directory.
     
@@ -153,11 +155,11 @@ def build_import_script(from_resource_dir, output_dir, overwrite_previous):
         # Generate PostgreSQL import script
         click.echo("\n--- Generating PostgreSQL import script ---")
         postgresql_script_path = PostgreSQLImportScriptGenerator.fromResourceDirToScript(
-            resource_dir, output_dir, overwrite_previous
+            resource_dir, output_dir, overwrite_previous, script_template
         )
         
         click.echo(f"\n✓ Successfully generated import script:")
-        click.echo(f"  PostgreSQL: {os.path.basename(postgresql_script_path)}")
+        click.echo(f"  PostgreSQL: {os.path.basename(postgresql_script_path)} (using template: {script_template})")
         click.echo(f"\nTo use the script:")
         click.echo(f"  python {os.path.basename(postgresql_script_path)} --csv_file=<csv> [--db_schema_name=<schema>] [--table_name=<table>]")
         click.echo(f"\nNote: Schema and table names can be set via DB_SCHEMA and DB_TABLE environment variables")
@@ -226,10 +228,12 @@ def invoke_compiled_script(run_import_from, import_data_from_dir, database_type,
               help='Output directory (defaults to CSV filename without extension)')
 @click.option('--overwrite_previous', is_flag=True, default=False,
               help='Overwrite existing output files')
-@click.option('--no-csv-lint', is_flag=True, default=False,
+@click.option('--no-csv-lint', is_flag=True, default=True,
                 help='Skip the csvlint check')
+@click.option('--script_template', type=str, default='dagster',
+              help='Template to use for the import script (default: "dagster")')
 @click.pass_context
-def full_compile(ctx, from_csv, output_dir, overwrite_previous, no_csv_lint):
+def full_compile(ctx, from_csv, output_dir, overwrite_previous, no_csv_lint, script_template):
     """
     Run all compilation stages in sequence.
     
@@ -284,7 +288,8 @@ def full_compile(ctx, from_csv, output_dir, overwrite_previous, no_csv_lint):
         ctx.invoke(build_import_script, 
                   from_resource_dir=output_dir, 
                   output_dir=output_dir, 
-                  overwrite_previous=overwrite_previous)
+                  overwrite_previous=overwrite_previous,
+                  script_template=script_template)
         
         # Final summary
         click.echo(f"\n" + "=" * 60)
