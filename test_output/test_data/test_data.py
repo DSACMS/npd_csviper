@@ -5,7 +5,7 @@ test_data Dagster Import
 Based on the 'dagster' Import Script Template for npd_CSViper
 
 Original CSV: test_data.csv
-Generated on: 2025-10-25 15:24:58
+Generated on: 2025-10-25 15:32:26
 """
 from dagster import asset, materialize
 

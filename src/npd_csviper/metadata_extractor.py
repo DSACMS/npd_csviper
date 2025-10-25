@@ -94,7 +94,7 @@ class CSVMetadataExtractor:
         return filename
     
     @staticmethod
-    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: Optional[str] = None, overwrite_previous: bool = False, no_csv_lint: bool = False) -> Dict[str, Any]:
+    def fromFileToMetadata(full_path_to_csv_file: str, output_dir: Optional[str] = None, overwrite_previous: bool = False, no_csv_lint: bool = True) -> Dict[str, Any]:
         """
         Extract metadata from a CSV file and optionally save to JSON with hash-based caching.
         
