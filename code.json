@@ -1,6 +1,9 @@
 {
-  "name": "CSViper",
-  "description": "CSViper is a command-line tool that automates the process of analyzing CSV files and generating SQL scripts and Python programs to load the data into relational databases. It supports both MySQL and PostgreSQL backends and is designed for scenarios where the database is hosted remotely while the CSV file resides on the local machine.",
+  "name": "npd_csviper",
+  "version": "",
+  "description": "A python command line tool that builds out other python scripts to import CSV files. ",
+  "longDescription": "",
+  "status": "",
   "permissions": {
     "licenses": [
       {
@@ -11,15 +14,40 @@
     "usageType": "openSource",
     "exemptionText": ""
   },
+  "organization": "",
   "repositoryURL": "https://github.com/DSACMS/npd_csviper",
+  "repositoryHost": "github",
   "repositoryVisibility": "public",
-  "laborHours": 5708.606,
+  "homepageURL": "",
+  "downloadURL": "",
+  "disclaimerURL": "",
+  "disclaimerText": "",
+  "vcs": "git",
+  "laborHours": 5547,
   "reuseFrequency": {
     "forks": 0,
     "clones": 9
   },
+  "platforms": [],
+  "categories": [],
+  "softwareType": "",
+  "languages": [
+    "Python",
+    "Shell"
+  ],
   "maintenance": "none",
-  "contractNumber": "none",
+  "contractNumber": [
+    "none"
+  ],
+  "SBOM": "https://github.com/DSACMS/npd_csviper/network/dependencies",
+  "relatedCode": [],
+  "reusedCode": [],
+  "partners": [],
+  "date": {
+    "created": "2025-07-22T19:20:45Z",
+    "lastModified": "2025-12-04T21:28:12Z",
+    "metadataLastUpdated": "2025-12-04T21:29:21.286Z"
+  },
   "tags": [
     "data",
     "python",
@@ -32,8 +60,16 @@
     "email": "opensource@cms.hhs.gov",
     "name": ""
   },
-  "feedbackMechanisms": [
-    "https://github.com/DSACMS/npd_csviper/issues"
-  ],
-  "AIUseCaseInventory": false
+  "feedbackMechanism": "https://github.com/DSACMS/npd_csviper/issues",
+  "AIUseCaseID": "0",
+  "localisation": false,
+  "repositoryType": "",
+  "userInput": false,
+  "fismaLevel": "",
+  "group": "",
+  "projects": [],
+  "systems": [],
+  "subsetInHealthcare": [],
+  "userType": [],
+  "maturityModelTier": 0
 }
